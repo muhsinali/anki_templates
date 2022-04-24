@@ -44,9 +44,11 @@ If you don't fill it in, no box will appear.
 
 ### Tags
 
-Your tags should be structured as follows: `content::C1::C2::C3 src::S1::S2::S3`. The `Cn` and `Sn` stand for hierarchically-labelled content and source tags respectively. You don't have to fill in all the numbers (e.g. the imaage below used `content::Deep_Learning::Neural_Nets::GANs src::fast.ai`. You can use more than three content or source tags, but they won't be shown when you review the card.
+Your tags should be structured as follows: `content::C1::C2::C3 src::S1::S2::S3`. The `Cn` and `Sn` stand for hierarchically-labelled content and source tags respectively. You don't have to fill in all the numbers (e.g. the example image below used `content::Deep_Learning::Neural_Nets::GANs src::fast.ai`. You can use more than three content or source tags, but they won't be shown when you review the card.
 
 If you've filled in the `URL` field, then the first of the `src` tags will be a hyperlink to that url.
+
+![image](https://user-images.githubusercontent.com/45238458/164967126-d87b3c8f-412e-48c5-ad80-ffd3b9379346.png)
 
 ### URL
 
