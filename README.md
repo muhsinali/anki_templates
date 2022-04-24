@@ -3,7 +3,7 @@ Contains templates for Anki cards, and code to auto-generate Anki cards (coming 
 
 # How to use the card templates
 
-In the directory `card_templates`, you'll find a series of sub-directories, each one corresponding to a particular card type. Within each of these directories, there are four files:
+In the directory **`card_templates`**, you'll find a series of sub-directories, each one corresponding to a particular card type. Within each of these directories, there are four files:
 
 * **`front_template`**, containing the HTML for the front of the card
 * **`back_template`**, containing the HTML for the back of the card
