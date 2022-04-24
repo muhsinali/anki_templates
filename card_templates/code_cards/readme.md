@@ -34,7 +34,7 @@ An example is shown below: the code in the HTML editor before using `Alt+i` and 
 
 ### Fonts
 
-I've included two non-standard fonts: [Hind Regular](https://fonts.google.com/specimen/Hind) and [Alegreya Sans SC Regular](https://fonts.google.com/specimen/Alegreya+Sans+SC) (for the normal text and for the tags respectively). This is just personal preference because I think they look nice! If you want to use them, you can go to these sites to download then install them. If not, you can just remove them from the `Styling` file, or replace them with your preferred font.
+I've included two non-standard fonts: [Hind Regular](https://fonts.google.com/specimen/Hind) and [Alegreya Sans SC Regular](https://fonts.google.com/specimen/Alegreya+Sans+SC) (for the normal text and for the tags respectively). This is just personal preference because I think they look nice! If you want to use them, you can go to the sites linked to above to download then install them. If not, you can just remove them from the `Styling` file, or replace them with your preferred font.
 
 ### Hints
 
