@@ -1,0 +1,96 @@
+<!-- Disable automated zoom onto cursor on mobile devices -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<!-------- Card Content, Hint, Tags and URL -------->
+<div class="content_aligned">
+    <!------- Content and Hint ------->
+    {{Front}}
+
+    <br>
+
+    {{#Hint}}
+    <br>
+    <div id="hint" class="hidden">
+        <p class="trigger">Click to show hint</p>
+        <p class="payload">{{Hint}}</p>
+    </div>
+    {{/Hint}}
+</div>
+
+
+
+<!------- Tags and URL ------->
+<div id="content_tag_left" class="tag"></div>
+<div id="url_container">{{URL}}</div>
+
+
+
+<!-------- JavaScript -------->
+<script>
+    "use strict";
+    // COMMON FUNCTIONS
+    // parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
+    function displayTags(tagsString) {
+        const tags = tagsString.split(" ");
+        const prettifiedTags = tags.map(prettifyTag).sort().join(", ");
+        const content_tag = document.getElementById("content_tag_left");
+        if (content_tag)
+            content_tag.textContent = prettifiedTags;
+    }
+    // converts "Computing::Machine_Learning" to "Computing - Machine Learning"
+    function prettifyTag(tag) {
+        return tag.split("::").join(" - ").replace(/_/g, " ");
+    }
+    // set link text
+    function setLinkText() {
+        const anchor = document.querySelector("a");
+        if (anchor)
+            anchor.textContent = "Link";
+    }
+    // FRONT TEMPLATE SPECIFIC FUNCTIONS
+    // automatically place cursor onto first input field if it exists
+    function placeCursor() {
+        const firstElement = document.getElementsByTagName("input")[0];
+        if (firstElement)
+            firstElement.focus();
+    }
+    // attach touch and mouse event listeners to reveal the hint element when triggered
+    function setupHint() {
+        const hint = document.getElementById("hint");
+        if (hint) {
+            hint.addEventListener("touchstart", () => (hint.className = "shown"));
+            hint.addEventListener("mousedown", () => (hint.className = "shown"));
+        }
+    }
+    // ensures it is easier to type code on mobile devices
+    function setInputAttributes() {
+        const inputs = document.querySelectorAll("input");
+        inputs.forEach(input => {
+            input.setAttribute("autocapitalize", "off");
+            input.setAttribute("autocomplete", "off");
+            input.setAttribute("autocorrect", "off");
+            input.setAttribute("spellcheck", "false");
+        });
+    }
+    // store all input values into an object
+    function storeInput() {
+        const data = {};
+        document.querySelectorAll("input").forEach(elem => {
+            elem.addEventListener("input", () => {
+                data[elem.name] = elem.value;
+            });
+        });
+        return data;
+    }
+
+
+
+    window.data = storeInput();
+    window.onload = function() {
+        setInputAttributes();
+        placeCursor();
+    }
+    setupHint();
+    displayTags("{{Tags}}");
+    setLinkText();
+</script>

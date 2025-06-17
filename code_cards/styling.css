@@ -1,0 +1,109 @@
+@import url("_editor_button_styles.css");
+
+/*  CARD  */
+.card {
+    font-family: arial;
+    font-size: 18px;
+    line-height:1.5em;
+    margin: 22px;
+    text-align: left;
+    text-shadow: 0px 0px 0px #DDDDDD;
+}
+
+
+
+/*  CONTENT ALIGNED */
+.content_aligned{
+    height: 70%;
+    left: 11%;
+    position: absolute;
+    top: 6%;
+    width: 76%;
+}
+
+
+
+/*  HINTS  */
+#hint {
+    background: #c5e7fa;
+    border-radius: 5px;
+    color: #000000;
+    opacity:0.7;
+    padding: 0.1em 1.3em;
+    transition: background 0.2s;
+}
+
+#hint.hidden:hover {
+    background: #78B9F2;
+    cursor: pointer;
+}
+
+#hint.hidden .payload {
+    display: none;
+}
+
+#hint.shown {
+    background: #fff;
+    color: #000000;
+}
+
+#hint.shown .trigger {
+    display: none;
+}
+
+#hint.shown .payload {
+    display: block;
+}
+
+
+
+/*  TAGS  */
+#content_tag_left {
+    bottom: 0;
+    float: left;
+    left: 11%;
+    margin-right: 5px;
+    position: absolute;
+}
+
+.tag {
+    font-family: arial;
+    font-size: 15px;
+}
+
+
+
+/*  URL  */
+#url_container {
+    bottom: 0;
+    position: absolute;
+    right: 11%;
+}
+
+a {
+    color: #84c7ff;
+    font-size: 15px;
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+
+
+/* Text box for code block */
+.exerciseprecontainer {
+    background-color: #CCCCCC;
+    border-color: #CCCCCC;
+    border-radius: 5px;
+    border-style: solid;
+    border-width: 3px;
+    color: #000000;
+    font-family: "MesloLGS NF";
+    font-size: 16px;
+    line-height: 24px;
+    padding: 0px 25px;
+}
+
+input {
+    font-family: "MesloLGS NF";
+    font-size: 16px;
+}
