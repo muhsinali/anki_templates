@@ -28,91 +28,91 @@
 <!-------- JavaScript -------->
 <script>
     "use strict";
-    // COMMON FUNCTIONS
-    // parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
-    function displayTags(tagsString) {
-        const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
-        const prettifiedTags = tags.map(prettifyTag).sort().join(", ");
-        const content_tag = document.getElementById("content_tag_left");
-        if (content_tag)
-            content_tag.textContent = prettifiedTags;
+    // Common functions
+// parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
+function displayTags(tagsString) {
+    const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
+    const prettifiedTags = tags.map(prettifyTag).sort().join(", ");
+    const content_tag = document.getElementById("content_tag_left");
+    if (content_tag)
+        content_tag.textContent = prettifiedTags;
+}
+// converts "Computing::Machine_Learning" to "Computing - Machine Learning"
+function prettifyTag(tag) {
+    return tag.split("::").join(" - ").replace(/_/g, " ");
+}
+// set link text
+function setLinkText() {
+    const anchor = document.querySelector("a");
+    if (anchor)
+        anchor.textContent = "Link";
+}
+
+    // Front template specific functions
+// automatically place cursor onto first input field if it exists
+function placeCursor() {
+    const firstElement = document.getElementsByTagName("input")[0];
+    if (firstElement)
+        firstElement.focus();
+}
+// ensures it is easier to type code on mobile devices
+function setInputAttributes() {
+    const inputs = document.querySelectorAll("input");
+    inputs.forEach((input) => {
+        input.setAttribute("autocapitalize", "off");
+        input.setAttribute("autocomplete", "off");
+        input.setAttribute("autocorrect", "off");
+        input.setAttribute("spellcheck", "false");
+    });
+}
+// set up DOMContentLoaded event listener to execute initialization functions
+function setupDOMContentLoaded(callback) {
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", callback);
     }
-    // converts "Computing::Machine_Learning" to "Computing - Machine Learning"
-    function prettifyTag(tag) {
-        return tag.split("::").join(" - ").replace(/_/g, " ");
+    else {
+        callback();
     }
-    // set link text
-    function setLinkText() {
-        const anchor = document.querySelector("a");
-        if (anchor)
-            anchor.textContent = "Link";
-    }
-    // FRONT TEMPLATE SPECIFIC FUNCTIONS
-    // automatically place cursor onto first input field if it exists
-    function placeCursor() {
-        const firstElement = document.getElementsByTagName("input")[0];
-        if (firstElement)
-            firstElement.focus();
-    }
-    // ensures it is easier to type code on mobile devices
-    function setInputAttributes() {
-        const inputs = document.querySelectorAll("input");
-        inputs.forEach((input) => {
-            input.setAttribute("autocapitalize", "off");
-            input.setAttribute("autocomplete", "off");
-            input.setAttribute("autocorrect", "off");
-            input.setAttribute("spellcheck", "false");
-        });
-    }
-    // setup DOMContentLoaded event listener to execute initialization functions
-    function setupDOMContentLoaded(callback) {
-        if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", callback);
-        }
-        else {
-            callback();
-        }
-    }
-    // handle Enter/Return key press to show answer (does not yet work on iPhone)
-    function setupEnterKeyEvent() {
-        const handleEnterKey = (event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                if (typeof window.pycmd !== "undefined") {
-                    window.pycmd("ans");
-                }
+}
+// handle Enter/Return key press to show answer (does not yet work on iPhone)
+function setupEnterKeyEvent() {
+    const handleEnterKey = (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            if (typeof window.pycmd !== "undefined") {
+                window.pycmd("ans");
             }
-        };
-        document.addEventListener("keydown", handleEnterKey);
-    }
-    // attach touch and mouse event listeners to reveal the hint element when triggered
-    function setupHint() {
-        const hint = document.getElementById("hint");
-        if (hint) {
-            hint.addEventListener("touchstart", () => (hint.className = "shown"));
-            hint.addEventListener("mousedown", () => (hint.className = "shown"));
         }
+    };
+    document.addEventListener("keydown", handleEnterKey);
+}
+// attach touch and mouse event listeners to reveal the hint element when triggered
+function setupHint() {
+    const hint = document.getElementById("hint");
+    if (hint) {
+        hint.addEventListener("touchstart", () => (hint.className = "shown"));
+        hint.addEventListener("mousedown", () => (hint.className = "shown"));
     }
-    // store all input values into an object
-    function storeInput() {
-        const data = {};
-        document.querySelectorAll("input").forEach((input) => {
-            const inputName = input.name;
-            // Skip empty inputs
-            if (inputName) {
+}
+// store all input values into an object
+function storeInput() {
+    const data = {};
+    document.querySelectorAll("input").forEach((input) => {
+        const inputName = input.name;
+        // Skip empty inputs
+        if (inputName) {
+            data[inputName] = input.value;
+            input.addEventListener("input", () => {
                 data[inputName] = input.value;
-                input.addEventListener("input", () => {
-                    data[inputName] = input.value;
-                });
-            }
-        });
-        return data;
-    }
-
-
-
+            });
+        }
+    });
+    return data;
+}
+// front template initialization
+function initializeFrontTemplate() {
     window.data = storeInput();
-    setupDOMContentLoaded(function() {
+    setupDOMContentLoaded(function () {
         setInputAttributes();
         placeCursor();
     });
@@ -120,4 +120,8 @@
     setupEnterKeyEvent();
     displayTags("{{Tags}}");
     setLinkText();
+}
+// Initialize when loaded
+initializeFrontTemplate();
+
 </script>
