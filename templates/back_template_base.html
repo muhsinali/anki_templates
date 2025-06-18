@@ -1,0 +1,37 @@
+<!-------- Card Content, Hint, Tags and URL -------->
+<div class="content_aligned">
+    <!------- Content and Hint ------->
+    {{Front}}
+
+    <br>
+    {{#Hint}}
+    <br>
+
+    <div id="hint" class="shown">
+        <p class="payload">{{Hint}}</p>
+    </div>
+    {{/Hint}}
+
+    {{#Back}}
+        <!-- Only add horizontal rule if Back is not empty -->
+        <hr>
+    {{/Back}}
+
+    {{Back}}
+    <br>
+</div>
+
+
+
+<!------- Tags and URL ------->
+<div id="content_tag_left" class="tag"></div>
+<div id="url_container">{{URL}}</div>
+
+
+
+<!-------- JavaScript -------->
+<script>
+    "use strict";
+    %COMMON_JS%
+    %TEMPLATE_JS%
+</script>
