@@ -186,3 +186,26 @@ describe("storeInput", () => {
     expect(Object.keys(store)).toEqual(["x"]);
   });
 });
+
+describe("setupDOMContentLoaded", () => {
+  test("calls callback immediately when DOM is already loaded", () => {
+    setupDom();
+    const callback = jest.fn();
+    (window as any).setupDOMContentLoaded(callback);
+    expect(callback).toHaveBeenCalled();
+  });
+
+  test("attaches event listener when DOM is loading", () => {
+    setupDom();
+    const callback = jest.fn();
+    // Mock document.readyState to simulate loading state
+    Object.defineProperty(document, "readyState", {
+      value: "loading",
+      writable: true,
+    });
+    const addEventListenerSpy = jest.spyOn(document, "addEventListener");
+    (window as any).setupDOMContentLoaded(callback);
+    expect(addEventListenerSpy).toHaveBeenCalledWith("DOMContentLoaded", callback);
+    addEventListenerSpy.mockRestore();
+  });
+});

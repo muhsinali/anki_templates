@@ -51,15 +51,6 @@ function placeCursor(): void {
   if (firstElement) firstElement.focus();
 }
 
-// attach touch and mouse event listeners to reveal the hint element when triggered
-function setupHint(): void {
-  const hint = document.getElementById("hint");
-  if (hint) {
-    hint.addEventListener("touchstart", () => (hint.className = "shown"));
-    hint.addEventListener("mousedown", () => (hint.className = "shown"));
-  }
-}
-
 // ensures it is easier to type code on mobile devices
 function setInputAttributes(): void {
   const inputs = document.querySelectorAll<HTMLInputElement>("input");
@@ -69,6 +60,24 @@ function setInputAttributes(): void {
     input.setAttribute("autocorrect", "off");
     input.setAttribute("spellcheck", "false");
   });
+}
+
+// setup DOMContentLoaded event listener to execute initialization functions
+function setupDOMContentLoaded(callback: () => void): void {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", callback);
+  } else {
+    callback();
+  }
+}
+
+// attach touch and mouse event listeners to reveal the hint element when triggered
+function setupHint(): void {
+  const hint = document.getElementById("hint");
+  if (hint) {
+    hint.addEventListener("touchstart", () => (hint.className = "shown"));
+    hint.addEventListener("mousedown", () => (hint.className = "shown"));
+  }
 }
 
 // store all input values into an object
