@@ -31,7 +31,7 @@
     // COMMON FUNCTIONS
     // parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
     function displayTags(tagsString) {
-        const tags = tagsString.split(" ");
+        const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
         const prettifiedTags = tags.map(prettifyTag).sort().join(", ");
         const content_tag = document.getElementById("content_tag_left");
         if (content_tag)
@@ -65,7 +65,7 @@
     // ensures it is easier to type code on mobile devices
     function setInputAttributes() {
         const inputs = document.querySelectorAll("input");
-        inputs.forEach(input => {
+        inputs.forEach((input) => {
             input.setAttribute("autocapitalize", "off");
             input.setAttribute("autocomplete", "off");
             input.setAttribute("autocorrect", "off");
@@ -75,10 +75,15 @@
     // store all input values into an object
     function storeInput() {
         const data = {};
-        document.querySelectorAll("input").forEach(elem => {
-            elem.addEventListener("input", () => {
-                data[elem.name] = elem.value;
-            });
+        document.querySelectorAll("input").forEach((input) => {
+            const inputName = input.name;
+            // Skip empty inputs
+            if (inputName) {
+                data[inputName] = input.value;
+                input.addEventListener("input", () => {
+                    data[inputName] = input.value;
+                });
+            }
         });
         return data;
     }
