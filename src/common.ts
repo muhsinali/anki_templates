@@ -71,6 +71,20 @@ function setupDOMContentLoaded(callback: () => void): void {
   }
 }
 
+// handle Enter/Return key press to show answer (does not yet work on iPhone)
+function setupEnterKeyEvent(): void {
+  const handleEnterKey = (event: KeyboardEvent): void => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (typeof (window as any).pycmd !== "undefined") {
+        (window as any).pycmd("ans");
+      }
+    }
+  };
+  
+  document.addEventListener("keydown", handleEnterKey);
+}
+
 // attach touch and mouse event listeners to reveal the hint element when triggered
 function setupHint(): void {
   const hint = document.getElementById("hint");

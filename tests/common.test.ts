@@ -209,3 +209,80 @@ describe("setupDOMContentLoaded", () => {
     addEventListenerSpy.mockRestore();
   });
 });
+
+describe("setupEnterKeyEvent", () => {
+  let mockPycmd: jest.Mock;
+  let addEventListenerSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    setupDom();
+    mockPycmd = jest.fn();
+    (window as any).pycmd = mockPycmd;
+    addEventListenerSpy = jest.spyOn(document, "addEventListener");
+  });
+
+  afterEach(() => {
+    delete (window as any).pycmd;
+    addEventListenerSpy.mockRestore();
+  });
+
+  test("attaches keydown event listener", () => {
+    (window as any).setupEnterKeyEvent();
+    expect(addEventListenerSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
+  });
+
+  test("calls pycmd('ans') when Enter key is pressed", () => {
+    (window as any).setupEnterKeyEvent();
+    
+    // Get the keydown handler that was added
+    const keydownHandler = addEventListenerSpy.mock.calls.find(
+      call => call[0] === "keydown"
+    )?.[1];
+    
+    // Simulate Enter key press
+    const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+    const preventDefaultSpy = jest.spyOn(enterEvent, "preventDefault");
+    
+    keydownHandler(enterEvent);
+    
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(mockPycmd).toHaveBeenCalledWith("ans");
+  });
+
+  test("does nothing when non-Enter key is pressed", () => {
+    (window as any).setupEnterKeyEvent();
+    
+    // Get the keydown handler that was added
+    const keydownHandler = addEventListenerSpy.mock.calls.find(
+      call => call[0] === "keydown"
+    )?.[1];
+    
+    // Simulate non-Enter key press
+    const spaceEvent = new KeyboardEvent("keydown", { key: " " });
+    const preventDefaultSpy = jest.spyOn(spaceEvent, "preventDefault");
+    
+    keydownHandler(spaceEvent);
+    
+    expect(preventDefaultSpy).not.toHaveBeenCalled();
+    expect(mockPycmd).not.toHaveBeenCalled();
+  });
+
+  test("does nothing when pycmd is not defined", () => {
+    delete (window as any).pycmd;
+    (window as any).setupEnterKeyEvent();
+    
+    // Get the keydown handler that was added
+    const keydownHandler = addEventListenerSpy.mock.calls.find(
+      call => call[0] === "keydown"
+    )?.[1];
+    
+    // Simulate Enter key press
+    const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+    const preventDefaultSpy = jest.spyOn(enterEvent, "preventDefault");
+    
+    keydownHandler(enterEvent);
+    
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    // Should not throw error even when pycmd is undefined
+  });
+});
