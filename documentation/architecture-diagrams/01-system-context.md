@@ -65,6 +65,9 @@ flowchart TB
   text files that a user manually pastes into Anki's card editor.
 - **`styling.css` is a manual boundary.** It lives in `code_cards/` alongside
   the generated HTML but is **not** produced by the build — it is edited by hand.
+  Its first line `@import url("_editor_button_styles.css")` references a file in
+  the user's **Anki media collection**, not in this repo; if absent, the import
+  fails silently.
 - **Anki is the runtime.** The transpiled JavaScript only ever runs inside
   Anki's webview (or jsdom during tests), never in this repo directly.
 - **Five Anki fields drive a card:** `Front`, `Back`, `Hint`, `URL`, and the

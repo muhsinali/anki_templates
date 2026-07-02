@@ -31,6 +31,9 @@ flowchart TB
 ```
 
 - **`storeInput()` runs first** so `window.data` exists before anything else.
+  It can safely query the inputs synchronously because the `<script>` block
+  sits at the *end* of the template body — the `{{Front}}` content above it is
+  already parsed by the time the script executes.
 - **`setInputAttributes()` + `placeCursor()` are deferred** behind
   `setupDOMContentLoaded` because they touch DOM elements; if the DOM is already
   parsed they run synchronously, otherwise they wait for `DOMContentLoaded`.

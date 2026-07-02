@@ -102,14 +102,18 @@ If you don't fill in this field, then there will be no hyperlink, but the tags w
 
 ## ⚙️ Development
 
-- **Build JS:** `npx tsc -p tsconfig.json` → outputs to `dist/`.
-- **Run Tests:**
-  ```bash
-  npm install && npm test
-  ```
+Requires Node.js 18+.
+
+```bash
+npm install     # Install dependencies
+npm run build   # Regenerate code_cards/*.html from src/ + templates/
+npm test        # Run the Jest test suite
+```
+
+- **[BUILD.md](BUILD.md)** — full build, test, and troubleshooting guide
+- **[Architecture diagrams](documentation/architecture-diagrams/README.md)** — Mermaid diagrams of the build pipeline and runtime data flow
 
 Contributions, issues, and feedback welcome! 🛠️\
 Star ⭐ if this repo saved you coding time.
 
 **Elevate your Anki workflow—turn passive review into active coding practice.**
-

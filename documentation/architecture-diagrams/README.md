@@ -25,7 +25,9 @@ in most Markdown viewers — no build step required.
 - **"How is it built?"** → [2 · Build Pipeline](./02-build-pipeline.md).
 - **"How does grading actually work?"** → [4 · Runtime Data Flow](./04-runtime-data-flow.md)
   then [5 · Answer Validation](./05-answer-validation.md). This front-to-back
-  `window.data` handoff is the core idea of the whole system.
+  `window.data` handoff is the core idea of the whole system: the flip rebuilds
+  the DOM (inputs come back empty), so the global is the only carrier of what
+  the learner typed.
 
 ## The system in one picture
 

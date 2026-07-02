@@ -5,6 +5,11 @@ state through a single global, `window.data`.** Anki renders both sides in the
 same webview, so a global set while showing the Front survives when the card is
 flipped to the Back — which is exactly how the answer gets graded.
 
+The JS context survives the flip, but **the DOM does not**: the Back base
+template re-renders `{{Front}}`, which recreates every `<input>` fresh and
+empty. The learner's typing survives the flip *only* inside `window.data` —
+that is why the global exists at all.
+
 ```mermaid
 sequenceDiagram
     actor User as Learner
@@ -25,6 +30,7 @@ sequenceDiagram
     Front->>Anki: pycmd("ans")
     Anki->>Back: flip to Back (same webview — window.data persists)
 
+    Note over Back: Back re-renders the Front field — inputs recreated empty
     Note over Back: initializeBackTemplate() runs on load
     Back->>Data: read window.data
     Back->>Back: revealAnswer(data) — normalize, compare, recolor
@@ -41,10 +47,13 @@ sequenceDiagram
 3. **Submit.** Pressing **Enter** triggers `setupEnterKeyEvent()`'s handler,
    which calls `window.pycmd("ans")` — Anki's bridge to show the answer side.
    *(This does not work on iPhone — a known limitation.)*
-4. **Same webview, surviving global.** Anki flips to the Back **in the same JS
-   context**, so `window.data` is still populated.
+4. **Same webview, surviving global — but a rebuilt DOM.** Anki flips to the
+   Back **in the same JS context**, so `window.data` is still populated. The
+   Back base template re-renders `{{Front}}`, though, so every `<input>` is a
+   brand-new element with an empty value.
 5. **Back loads → `initializeBackTemplate()`.** If `window.data` exists, it calls
-   `revealAnswer(window.data)` to grade each field. See
+   `revealAnswer(window.data)` to grade each recreated field against what the
+   learner typed, then overwrites its value with the correct answer. See
    [`05-answer-validation`](./05-answer-validation.md) for the comparison logic.
 
 ## Why `window.data` and not something else?
