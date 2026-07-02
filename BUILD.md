@@ -151,9 +151,15 @@ file is absent the import fails silently.
 ```bash
 npm test                      # Run all tests
 npm test -- --watch           # Watch mode (re-run on changes)
-npm test -- --coverage        # Generate coverage report
+npm test -- --coverage        # Generate coverage report (see warning below)
 npm test -- tests/common.test.ts  # Run specific test file
 ```
+
+> **Warning:** the coverage report currently shows 0% for all `src/` files even though
+> the suite passes — the tests `eval()` transpiled source, which Jest's default
+> (Istanbul) instrumentation cannot see. Don't use the numbers. A verified fix (V8
+> coverage provider + `sourceURL` attribution) is specified in
+> [improve-test-infrastructure.md](improve-test-infrastructure.md), step 5.
 
 ### Test Architecture
 
