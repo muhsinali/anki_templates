@@ -11,6 +11,8 @@ This is an Anki flashcard template system that generates interactive code practi
 - `README.md` — User-facing: what the cards do, Anki setup, authoring cards, tagging/linking conventions
 - `BUILD.md` — Developer-facing: build/test workflow, extending the system, troubleshooting
 - `documentation/architecture-diagrams/` — Six hand-authored Mermaid diagrams (system context, build pipeline, module structure, runtime data flow, answer validation, card lifecycles). Update these when the architecture changes.
+- `improvement-plan.md` — Prioritized backlog of bugs, testing gaps, improvements, and housekeeping (scored by impact)
+- `improve-test-infrastructure.md` — Sequenced plan for the test infrastructure (CI, build tests, e2e test, coverage fix); claims machine-verified — see its validation log
 
 ## Development Commands
 
@@ -149,6 +151,7 @@ Test files load `common.ts` before the template-specific file, mirroring the pla
 7. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
 8. **URL field**: Must paste with `Ctrl+Shift+V` (plain text) in Anki to avoid link formatting issues
 9. **Build does not type-check**: `ts.transpile()` skips type errors — run `npx tsc -p tsconfig.json --noEmit` to catch them
+10. **Coverage reports are blind**: `npm test -- --coverage` reports 0% for all `src/` files even with the whole suite passing — tests `eval()` transpiled source, which Jest's Istanbul instrumentation cannot see. A verified fix (V8 coverage provider + `sourceURL`) is specified in `improve-test-infrastructure.md` step 5.
 
 ## Styling Reference
 
