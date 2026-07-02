@@ -115,8 +115,10 @@ Two ordering guarantees matter here:
 
 ### What the build does NOT do
 
-- **No type-checking.** `ts.transpile()` strips types without checking them.
-  Run `npx tsc -p tsconfig.json --noEmit` to catch type errors.
+- **No type-checking.** `transpileSource()` strips types without checking
+  them. Syntax errors *do* fail the build (transpile diagnostics are
+  checked and thrown), but type errors sail through — run
+  `npx tsc -p tsconfig.json --noEmit` to catch those (CI does).
 - **No CSS generation.** `code_cards/styling.css` is hand-maintained.
 - **No bundling/minification.** The build is `readFileSync` → `ts.transpile`
   → checked literal placeholder injection → `writeFileSync`, all synchronous.
@@ -166,8 +168,10 @@ npm test -- tests/common.test.ts  # Run specific test file
 Tests use Jest with jsdom to simulate a browser DOM:
 
 1. Set up DOM with `document.body.innerHTML = '<html>...'`
-2. Transpile the real `src/` files using the same settings as the build
-   (`module: none`, `target: ES2022`)
+2. Transpile the real `src/` files with `transpileSource()`, imported from
+   the build script — the same code path and compiler settings
+   (`module: none`, `target: ES2022`) the shipped templates are built with,
+   so the two can never drift apart
 3. Execute transpiled code with `eval()` to attach functions to `window` —
    so tests exercise the exact code that ships
 4. Test functions via `(window as any).functionName()`
@@ -186,7 +190,7 @@ Test configuration:
 
 | Test File | Tests For |
 |-----------|-----------|
-| `tests/build_templates.test.ts` | Placeholder validation and literal JavaScript injection |
+| `tests/build_templates.test.ts` | Transpile diagnostics, placeholder validation, literal JavaScript injection, base-template invariants |
 | `tests/common.test.ts` | `displayTags`, `prettifyTag`, `setLinkText` |
 | `tests/front_template.test.ts` | `placeCursor`, `storeInput`, `setupHint`, etc. |
 | `tests/back_template.test.ts` | `parseInput`, `revealAnswer` |
@@ -259,6 +263,13 @@ Key selectors:
 - Check that functions are defined at top level (not inside a module/namespace)
 - Rebuild with `npm run build`
 
+### Build fails with "Failed to transpile"
+
+- A `src/` file has a TypeScript **syntax** error — the message lists the
+  file, line, and TS diagnostic. Fix the syntax and rebuild.
+- Only syntax errors are caught here; type errors still build fine (see
+  "TypeScript errors" below).
+
 ### Build fails with "missing required placeholder"
 
 - Ensure the base template still contains both `%COMMON_JS%` and
@@ -268,7 +279,8 @@ Key selectors:
 
 ### Tests fail but build works
 
-- Tests use the same transpilation settings as build
+- Tests transpile through the build's own `transpileSource()`, so the
+  compiler settings cannot drift between the two
 - Check that `setupDom()` is called before testing functions
 - Ensure TextEncoder/TextDecoder polyfills are imported in test file
 

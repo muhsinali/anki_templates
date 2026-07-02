@@ -5,16 +5,15 @@ import { TextEncoder, TextDecoder } from "util";
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import * as ts from "typescript";
+import { transpileSource } from "../scripts/build-templates";
 
-// Helper to set up DOM and load common.ts into the existing jsdom window
+// Helper to set up DOM and load common.ts into the existing jsdom window.
+// transpileSource is the build's own transpile step, so the tests always
+// use the exact compiler settings the shipped templates are built with.
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-  const source = readFileSync(join(process.cwd(), "src", "common.ts"), "utf8");
-  const transpiled = ts.transpile(source, {
-    module: ts.ModuleKind.None,
-    target: ts.ScriptTarget.ES2022,
-  });
+  const sourcePath = join(process.cwd(), "src", "common.ts");
+  const transpiled = transpileSource(readFileSync(sourcePath, "utf8"), sourcePath);
   // Execute the transpiled code so functions attach to the current window
   (window as any).eval(transpiled);
 }

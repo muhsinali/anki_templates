@@ -5,27 +5,21 @@ import { TextEncoder, TextDecoder } from "util";
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import * as ts from "typescript";
+import { transpileSource } from "../scripts/build-templates";
 
-// Helper to set up DOM and load back_template.ts into the existing jsdom window
+// Helper to set up DOM and load back_template.ts into the existing jsdom window.
+// transpileSource is the build's own transpile step, so the tests always
+// use the exact compiler settings the shipped templates are built with.
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
 
   // Load common.ts functions first
-  const commonSource = readFileSync(join(process.cwd(), "src", "common.ts"), "utf8");
-  const commonTranspiled = ts.transpile(commonSource, {
-    module: ts.ModuleKind.None,
-    target: ts.ScriptTarget.ES2022,
-  });
-  (window as any).eval(commonTranspiled);
+  const commonPath = join(process.cwd(), "src", "common.ts");
+  (window as any).eval(transpileSource(readFileSync(commonPath, "utf8"), commonPath));
 
   // Then load back_template.ts functions
-  const backSource = readFileSync(join(process.cwd(), "src", "back_template.ts"), "utf8");
-  const backTranspiled = ts.transpile(backSource, {
-    module: ts.ModuleKind.None,
-    target: ts.ScriptTarget.ES2022,
-  });
-  (window as any).eval(backTranspiled);
+  const backPath = join(process.cwd(), "src", "back_template.ts");
+  (window as any).eval(transpileSource(readFileSync(backPath, "utf8"), backPath));
 }
 
 describe("Back Template Functions", () => {

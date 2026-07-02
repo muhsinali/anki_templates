@@ -1,4 +1,67 @@
-import { injectJavaScript } from "../scripts/build-templates";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { injectJavaScript, transpileSource } from "../scripts/build-templates";
+
+describe("transpileSource", () => {
+  test("strips types with the build's compiler settings", () => {
+    const js = transpileSource("const x: number = 1;\n", "valid.ts");
+    expect(js).toContain("const x = 1;");
+    expect(js).not.toContain("number");
+  });
+
+  test("throws on syntactically invalid source instead of emitting garbage", () => {
+    expect(() => transpileSource("function ( { oops", "invalid.ts")).toThrow(
+      /invalid\.ts/,
+    );
+  });
+});
+
+describe("base template invariants", () => {
+  const baseTemplates = ["front", "back"].map((side) => {
+    const path = join(process.cwd(), "templates", `${side}_template_base.html`);
+    return [side, readFileSync(path, "utf8")] as const;
+  });
+
+  test.each(baseTemplates)(
+    "%s base template contains each placeholder exactly once",
+    (_side, html) => {
+      expect(html.split("%COMMON_JS%").length - 1).toBe(1);
+      expect(html.split("%TEMPLATE_JS%").length - 1).toBe(1);
+    },
+  );
+
+  test.each(baseTemplates)(
+    "%s base template puts %%COMMON_JS%% before %%TEMPLATE_JS%%, inside a <script> block at the end of the body",
+    (_side, html) => {
+      const scriptStart = html.lastIndexOf("<script>");
+      const scriptEnd = html.lastIndexOf("</script>");
+      const commonAt = html.indexOf("%COMMON_JS%");
+      const templateAt = html.indexOf("%TEMPLATE_JS%");
+
+      // Common functions must be defined before the code that calls them
+      expect(commonAt).toBeLessThan(templateAt);
+
+      // Both placeholders live inside the <script> block
+      expect(commonAt).toBeGreaterThan(scriptStart);
+      expect(templateAt).toBeLessThan(scriptEnd);
+
+      // The <script> block is the last thing in the template, so the
+      // {{Front}} inputs above it are already parsed when it runs
+      expect(html.slice(scriptEnd + "</script>".length).trim()).toBe("");
+    },
+  );
+
+  test.each(baseTemplates)(
+    "injected common JS precedes template JS in the built %s output",
+    (_side, html) => {
+      const built = injectJavaScript(html, "/*COMMON_MARKER*/", "/*TEMPLATE_MARKER*/");
+      const commonAt = built.indexOf("/*COMMON_MARKER*/");
+      const templateAt = built.indexOf("/*TEMPLATE_MARKER*/");
+      expect(commonAt).toBeGreaterThan(-1);
+      expect(commonAt).toBeLessThan(templateAt);
+    },
+  );
+});
 
 describe("injectJavaScript", () => {
   test("preserves replacement-looking JavaScript literally", () => {

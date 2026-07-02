@@ -134,7 +134,7 @@ Templates use Anki's mustache-style field placeholders:
 
 Tests use Jest (`ts-jest` preset, jsdom environment — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
 1. Sets `document.body.innerHTML`
-2. Transpiles the real `src/` files with the same compiler settings as the build (`module: none`, `target: ES2022`)
+2. Transpiles the real `src/` files with `transpileSource()` imported from the build script — the same code path and compiler settings (`module: none`, `target: ES2022`) as the build
 3. `eval()`s the transpiled code to attach functions to `window` — so tests exercise the exact code that ships
 4. Tests functions via `(window as any).functionName()`
 
@@ -150,7 +150,7 @@ Test files load `common.ts` before the template-specific file, mirroring the pla
 6. **Hint classes differ per side**: front hint starts as `class="hidden"` (click to reveal); back hint is hard-coded `class="shown"`
 7. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
 8. **URL field**: Must paste with `Ctrl+Shift+V` (plain text) in Anki to avoid link formatting issues
-9. **Build does not type-check**: `ts.transpile()` skips type errors — run `npx tsc -p tsconfig.json --noEmit` to catch them
+9. **Build does not type-check**: syntax errors fail the build (transpile diagnostics are checked), but type errors sail through — run `npx tsc -p tsconfig.json --noEmit` to catch them
 10. **Coverage reports are blind**: `npm test -- --coverage` reports 0% for all `src/` files even with the whole suite passing — tests `eval()` transpiled source, which Jest's Istanbul instrumentation cannot see. A verified fix (V8 coverage provider + `sourceURL`) is specified in `improve-test-infrastructure.md` step 5.
 
 ## Styling Reference
