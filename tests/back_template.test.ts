@@ -10,7 +10,7 @@ import * as ts from "typescript";
 // Helper to set up DOM and load back_template.ts into the existing jsdom window
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-  
+
   // Load common.ts functions first
   const commonSource = readFileSync(join(process.cwd(), "src", "common.ts"), "utf8");
   const commonTranspiled = ts.transpile(commonSource, {
@@ -18,7 +18,7 @@ function setupDom(html: string = "") {
     target: ts.ScriptTarget.ES2022,
   });
   (window as any).eval(commonTranspiled);
-  
+
   // Then load back_template.ts functions
   const backSource = readFileSync(join(process.cwd(), "src", "back_template.ts"), "utf8");
   const backTranspiled = ts.transpile(backSource, {
@@ -34,6 +34,16 @@ describe("Back Template Functions", () => {
       setupDom();
       const input = " “hello” \n  ‘world’ ";
       expect((window as any).parseInput(input)).toBe('"hello"\'world\'');
+    });
+
+    test("leaves backticks untouched", () => {
+      setupDom();
+      expect((window as any).parseInput("`template ${x}`")).toBe("`template${x}`");
+    });
+
+    test("strips non-breaking spaces", () => {
+      setupDom();
+      expect((window as any).parseInput("git\u00A0reset\u00A0--hard")).toBe("gitreset--hard");
     });
   });
 
@@ -57,6 +67,28 @@ describe("Back Template Functions", () => {
       expect(inputs[1].style.backgroundColor).toBe("rgb(240, 128, 128)");
       expect(inputs[1].value).toBe("C");
       expect(inputs[1].style.fontWeight).toBe("bold");
+    });
+
+    test("grades straight quotes as correct when the expected answer has curly quotes", () => {
+      const html = `<input name="print(“hi”)">`;
+      setupDom(html);
+      const data = { "print(“hi”)": 'print("hi")' };
+      (window as any).revealAnswer(data);
+
+      const input = document.querySelector("input")!;
+      expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
+      expect(input.value).toBe("print(“hi”)");
+    });
+
+    test("grades curly quotes as correct when the expected answer has straight quotes", () => {
+      const html = `<input name="print('hi')">`;
+      setupDom(html);
+      const data = { "print('hi')": "print(‘hi’)" };
+      (window as any).revealAnswer(data);
+
+      const input = document.querySelector("input")!;
+      expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
+      expect(input.value).toBe("print('hi')");
     });
 
     test("skips inputs without names", () => {

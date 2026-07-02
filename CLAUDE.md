@@ -92,8 +92,8 @@ The `<script>` block sits at the end of each template, so the `{{Front}}` inputs
 <input name="console.log">  <!-- Expected answer is "console.log" -->
 ```
 
-- `revealAnswer()` compares normalized user input against input name
-- Normalization: smart quotes → straight quotes, all whitespace stripped
+- `revealAnswer()` compares the user input against the input name, with **both sides** normalized by `parseInput()`
+- Normalization: smart quotes → straight quotes, all whitespace stripped (applied to the expected answer and the typed answer alike)
 - Colors: `rgb(124,232,0)` = correct (green), `rgb(240,128,128)` = wrong (red)
 - Untouched/missing inputs grade as empty string (wrong), never throw (`data[name] ?? ""`)
 
