@@ -1,5 +1,7 @@
 # ![image](.github/assets/anki_logo.jpeg) Code Cards for Anki
 
+[![CI](https://github.com/muhsinali/anki_templates/actions/workflows/ci.yml/badge.svg)](https://github.com/muhsinali/anki_templates/actions/workflows/ci.yml)
+
 Unlock faster, more engaging code practice on the go with **Code Cards for Anki**—a sleek, friction‑free template that turns your flashcards into interactive coding exercises. Perfect for students, bootcampers, and devs who want to level up their skills anywhere, anytime.
 
 ![img.png](.github/assets/second_example.png)
@@ -102,7 +104,7 @@ If you don't fill in this field, then there will be no hyperlink, but the tags w
 
 ## ⚙️ Development
 
-Requires Node.js 18+.
+Requires Node.js 22+.
 
 ```bash
 npm install     # Install dependencies

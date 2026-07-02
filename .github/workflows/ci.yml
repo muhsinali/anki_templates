@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Maintained LTS lines (Node 18/20 are past end-of-life)
+        node-version: [22, 24]
+    name: Node ${{ matrix.node-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check source (the build never type-checks)
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Type-check tests and scripts
+        run: npx tsc -p tsconfig.jest.json --noEmit
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build templates
+        run: npm run build
+
+      - name: Verify committed code_cards/ matches src/ (no drift)
+        run: git diff --exit-code code_cards/

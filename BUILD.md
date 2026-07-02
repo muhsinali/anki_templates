@@ -9,7 +9,7 @@ This document explains how to build, test, and extend the Anki template system.
 
 ## Prerequisites
 
-- Node.js (v18+ recommended)
+- Node.js (v22+ — CI runs on Node 22 and 24, the maintained LTS lines)
 - npm
 - [pre-commit](https://pre-commit.com/) (optional — only needed for the git hooks)
 
@@ -324,17 +324,24 @@ pre-commit install        # Install hooks into .git/hooks
 pre-commit run --all-files  # Run all hooks manually
 ```
 
-## CI/CD Considerations
+## Continuous Integration
 
-There is currently no CI pipeline configured (no GitHub Actions workflows).
-For automated builds, the canonical sequence is:
+Every push and pull request runs the CI workflow
+(`.github/workflows/ci.yml`) on Node 22 and 24:
 
 ```bash
-npm ci                 # Clean install (faster, uses package-lock.json)
-npm test               # Run tests
-npm run build          # Generate templates
+npm ci                             # Clean install from package-lock.json
+npx tsc -p tsconfig.json --noEmit  # Type-check src/ (the build never type-checks)
+npx tsc -p tsconfig.jest.json --noEmit  # Type-check tests/ and scripts/
+npm test                           # Run the Jest suite
+npm run build                      # Regenerate the templates
+git diff --exit-code code_cards/   # Fail if committed output drifted from src/
 ```
 
-Generated files in `code_cards/` are committed to the repo so users can copy
-them into Anki without building — remember to commit regenerated output
-alongside source changes.
+The last step is the drift gate: generated files in `code_cards/` are
+committed to the repo so users can copy them into Anki without building, and
+CI fails any change that edits `src/` or `templates/` without committing the
+regenerated output. It also implicitly asserts the build is deterministic.
+
+A PR cannot merge green if it breaks the types, the tests, the build, or
+forgets to regenerate `code_cards/`.
