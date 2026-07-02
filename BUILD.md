@@ -179,6 +179,27 @@ Tests use Jest with jsdom to simulate a browser DOM:
 Template test files load `common.ts` before the template-specific file,
 mirroring the `%COMMON_JS%` → `%TEMPLATE_JS%` order in the built HTML.
 
+On top of that unit layer, `tests/integration.test.ts` exercises the whole
+card lifecycle end-to-end, the way Anki runs it:
+
+1. Builds both templates **in-memory** through the build script's own
+   `transpileSource()` + `injectJavaScript()` — a broken base template or
+   broken injection fails this test
+2. Renders the Anki fields (`{{Front}}`, `{{#Hint}}…{{/Hint}}`, …) with a
+   small mustache substitute, applied to the whole template including the
+   `<script>` — exactly like Anki
+3. Loads the front: sets `document.body.innerHTML`, then evals the extracted
+   script (setting `innerHTML` never executes `<script>` tags), types into
+   the inputs, and presses Enter against a `pycmd` mock
+4. Flips exactly as Anki does: same window (`window.data` persists), fresh
+   DOM re-rendered from `{{Front}}`, back script eval'd, grading asserted
+
+One nuance to leave alone: the built script begins with `"use strict"`, so
+under `eval()` its function declarations stay scoped to the eval instead of
+becoming globals (in a real `<script>` tag they would become globals). That
+is fine — each side's script is self-contained, and the only state that must
+cross the flip, `window.data`, is assigned to `window` explicitly.
+
 Test configuration:
 
 | File | Role |
@@ -191,6 +212,7 @@ Test configuration:
 | Test File | Tests For |
 |-----------|-----------|
 | `tests/build_templates.test.ts` | Transpile diagnostics, placeholder validation, literal JavaScript injection, base-template invariants |
+| `tests/integration.test.ts` | End-to-end card lifecycle: in-memory build → field render → front → type → Enter → flip → grading |
 | `tests/common.test.ts` | `displayTags`, `prettifyTag`, `setLinkText` |
 | `tests/front_template.test.ts` | `placeCursor`, `storeInput`, `setupHint`, etc. |
 | `tests/back_template.test.ts` | `parseInput`, `revealAnswer` |
