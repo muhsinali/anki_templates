@@ -19,6 +19,9 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import * as ts from "typescript";
 
+const COMMON_JS_PLACEHOLDER = "%COMMON_JS%";
+const TEMPLATE_JS_PLACEHOLDER = "%TEMPLATE_JS%";
+
 /**
  * Transpiles a TypeScript file to JavaScript
  *
@@ -35,6 +38,36 @@ function transpileTypeScript(filePath: string): string {
     module: ts.ModuleKind.None,     // No module system - functions are global
     target: ts.ScriptTarget.ES2022, // Modern JavaScript features
   });
+}
+
+function replacePlaceholder(
+  template: string,
+  placeholder: string,
+  replacement: string,
+): string {
+  if (!template.includes(placeholder)) {
+    throw new Error(`Base template is missing required placeholder ${placeholder}`);
+  }
+
+  return template.replace(placeholder, () => replacement);
+}
+
+/**
+ * Injects transpiled JavaScript into an Anki base template.
+ *
+ * The replacer callbacks keep JavaScript replacement patterns such as "$$" and
+ * "$&" literal instead of letting String.replace rewrite them.
+ */
+export function injectJavaScript(
+  baseTemplate: string,
+  commonJs: string,
+  templateJs: string,
+): string {
+  return replacePlaceholder(
+    replacePlaceholder(baseTemplate, COMMON_JS_PLACEHOLDER, commonJs),
+    TEMPLATE_JS_PLACEHOLDER,
+    templateJs,
+  );
 }
 
 /**
@@ -68,9 +101,7 @@ function buildTemplate(templateName: "front" | "back"): void {
   // Replace placeholders in HTML template with transpiled JavaScript
   // %COMMON_JS% -> common functions (displayTags, prettifyTag, setLinkText)
   // %TEMPLATE_JS% -> template-specific functions and initialization
-  const finalTemplate = baseTemplate
-    .replace("%COMMON_JS%", commonJs)
-    .replace("%TEMPLATE_JS%", templateJs);
+  const finalTemplate = injectJavaScript(baseTemplate, commonJs, templateJs);
 
   // Write the final HTML file to the code_cards directory
   // This is where Anki expects to find the template files
@@ -99,4 +130,6 @@ function main(): void {
 }
 
 // Execute the build process
-main();
+if (require.main === module) {
+  main();
+}

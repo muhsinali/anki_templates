@@ -27,9 +27,9 @@ flowchart TB
 ## Inside `buildTemplate(name)` — the transpile + inject step
 
 For each side, three inputs are combined: the base HTML shell plus two blobs of
-transpiled JavaScript. The base HTML contains two placeholder tokens that get
-string-replaced. The diagram shows the `front` side; `back` is identical with
-`back_*` filenames.
+transpiled JavaScript. The base HTML contains two placeholder tokens that are
+validated and replaced with literal JavaScript text. The diagram shows the
+`front` side; `back` is identical with `back_*` filenames.
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     SPECIFIC["src/front_template.ts"] -->|"ts.transpile()"| JS2["template JS string"]
     BASE["templates/front_template_base.html<br/>contains %COMMON_JS% + %TEMPLATE_JS%"] --> R
 
-    JS1 -->|"replaces %COMMON_JS%"| R["baseTemplate.replace(...)<br/>string substitution"]
+    JS1 -->|"literal insert into %COMMON_JS%"| R["injectJavaScript(...)<br/>checked placeholder injection"]
     JS2 -->|"replaces %TEMPLATE_JS%"| R
     R -->|"writeFileSync"| OUT["code_cards/front_template.html"]
 
@@ -60,10 +60,14 @@ flowchart LR
 - **Two placeholders, one order.** The base HTML always lays out
   `%COMMON_JS%` before `%TEMPLATE_JS%`, so common functions
   (`displayTags`, `prettifyTag`, `setLinkText`) are defined before the
-  template-specific code that calls them.
+  template-specific code that calls them. The build now fails clearly if either
+  placeholder is missing.
+- **Literal JavaScript injection.** `injectJavaScript()` uses replacer callbacks
+  so JavaScript strings containing replacement patterns like `$$` or `$&` are
+  copied byte-for-byte into the generated template.
 - **Purely synchronous & string-based.** The build is `readFileSync` →
-  `ts.transpile` → `String.replace` → `writeFileSync`. No bundler, no DOM, no
-  source maps.
+  `ts.transpile` → checked placeholder injection → `writeFileSync`. No bundler,
+  no DOM, no source maps.
 - **`styling.css` is never touched by this pipeline** — it is maintained by hand
   in `code_cards/`.
 

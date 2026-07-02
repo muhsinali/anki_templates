@@ -67,9 +67,10 @@ The build script (`scripts/build-templates.ts`, run via `ts-node`) performs thes
 │     %COMMON_JS%   →  transpiled common.ts                       │
 │     %TEMPLATE_JS% →  transpiled front_template.ts               │
 │                      or back_template.ts                        │
+│     Missing placeholders fail the build                         │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────────┐
 │  4. Write final HTML files                                      │
 │     code_cards/front_template.html                              │
 │     code_cards/back_template.html                               │
@@ -103,6 +104,11 @@ Two ordering guarantees matter here:
 - `%COMMON_JS%` comes **before** `%TEMPLATE_JS%`, so shared functions
   (`displayTags`, `prettifyTag`, `setLinkText`) are defined before the
   template-specific initialization code that calls them.
+- Placeholder injection uses a replacer callback, so JavaScript strings that
+  contain replacement-looking text such as `$$` or `$&` are copied literally
+  into the generated HTML.
+- The build checks that both placeholders are present and throws a clear error
+  if either one is missing.
 - The `<script>` block sits at the **end** of the template body, so the
   `{{Front}}` inputs above it are already in the DOM when the initialization
   code runs.
@@ -113,7 +119,7 @@ Two ordering guarantees matter here:
   Run `npx tsc -p tsconfig.json --noEmit` to catch type errors.
 - **No CSS generation.** `code_cards/styling.css` is hand-maintained.
 - **No bundling/minification.** The build is `readFileSync` → `ts.transpile`
-  → `String.replace` → `writeFileSync`, all synchronous.
+  → checked literal placeholder injection → `writeFileSync`, all synchronous.
 
 ## Source Files
 
@@ -174,6 +180,7 @@ Test configuration:
 
 | Test File | Tests For |
 |-----------|-----------|
+| `tests/build_templates.test.ts` | Placeholder validation and literal JavaScript injection |
 | `tests/common.test.ts` | `displayTags`, `prettifyTag`, `setLinkText` |
 | `tests/front_template.test.ts` | `placeCursor`, `storeInput`, `setupHint`, etc. |
 | `tests/back_template.test.ts` | `parseInput`, `revealAnswer` |
@@ -245,6 +252,13 @@ Key selectors:
 - Ensure `module: none` in tsconfig.json
 - Check that functions are defined at top level (not inside a module/namespace)
 - Rebuild with `npm run build`
+
+### Build fails with "missing required placeholder"
+
+- Ensure the base template still contains both `%COMMON_JS%` and
+  `%TEMPLATE_JS%` inside the `<script>` block
+- Keep `%COMMON_JS%` before `%TEMPLATE_JS%` so shared functions are available
+  before template-specific initialization runs
 
 ### Tests fail but build works
 
