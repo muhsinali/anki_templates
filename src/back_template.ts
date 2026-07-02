@@ -12,7 +12,7 @@ function revealAnswer(data: Record<string, string>): void {
     // Skip empty inputs
     if (inputName) {
       const trueAnswer = inputName;
-      const expected = trueAnswer.replace(/\s+/g, "");
+      const expected = parseInput(trueAnswer);
       const actual = parseInput(data[inputName] ?? "");
 
       input.style.backgroundColor =

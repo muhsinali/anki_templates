@@ -9,7 +9,7 @@ cosmetic differences never mark a correct answer wrong. Implemented in
 flowchart TB
     START(["revealAnswer(data)<br/>for each input on the card"]) --> HASNAME{"input has a<br/>name attribute?"}
     HASNAME -->|no| SKIP["skip this input<br/>(no color, no change)"]
-    HASNAME -->|yes| EXPECTED["expected = name with all whitespace stripped<br/>(the name IS the correct answer)"]
+    HASNAME -->|yes| EXPECTED["expected = parseInput(name)<br/>(the name IS the correct answer)"]
     EXPECTED --> ACTUAL["raw = what the learner typed for this input<br/>(missing / untouched → empty string)"]
     ACTUAL --> NORM["actual = parseInput(raw):<br/>curly quotes → straight quotes<br/>then strip ALL whitespace"]
     NORM --> CMP{"actual === expected ?"}
@@ -42,10 +42,11 @@ negative:
 | Smart single quotes | `‘` `’` → `'` | `‘y’` → `'y'` |
 | Whitespace | all runs of whitespace removed (`\s+`) | `git  reset` → `gitreset` |
 
-- The **expected** value only has whitespace stripped (it originates from the
-  clean `name` attribute).
-- The **actual** value goes through the full `parseInput()` because a learner may
-  type curly quotes (especially on mobile) or add stray spaces.
+- **Both** the expected value (the `name` attribute) and the actual value (what
+  the learner typed) go through the full `parseInput()`. The learner may type
+  curly quotes (especially on mobile), and the `name` attribute may contain them
+  too — e.g. pasted from a website or auto-converted by an editor — so both
+  sides are normalized identically before comparison.
 
 ## Consequences of this design
 

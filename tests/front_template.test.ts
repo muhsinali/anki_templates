@@ -10,7 +10,7 @@ import * as ts from "typescript";
 // Helper to set up DOM and load front_template.ts into the existing jsdom window
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-  
+
   // Load common.ts functions first
   const commonSource = readFileSync(join(process.cwd(), "src", "common.ts"), "utf8");
   const commonTranspiled = ts.transpile(commonSource, {
@@ -18,7 +18,7 @@ function setupDom(html: string = "") {
     target: ts.ScriptTarget.ES2022,
   });
   (window as any).eval(commonTranspiled);
-  
+
   // Then load front_template.ts functions
   const frontSource = readFileSync(join(process.cwd(), "src", "front_template.ts"), "utf8");
   const frontTranspiled = ts.transpile(frontSource, {
@@ -100,16 +100,16 @@ describe("Front Template Functions", () => {
 
     test("calls pycmd('ans') when Enter key is pressed", () => {
       (window as any).setupEnterKeyEvent();
-      
+
       const keydownHandler = addEventListenerSpy.mock.calls.find(
         call => call[0] === "keydown"
       )?.[1];
-      
+
       const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
       const preventDefaultSpy = jest.spyOn(enterEvent, "preventDefault");
-      
+
       keydownHandler(enterEvent);
-      
+
       expect(preventDefaultSpy).toHaveBeenCalled();
       expect(mockPycmd).toHaveBeenCalledWith("ans");
     });

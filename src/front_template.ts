@@ -38,7 +38,7 @@ function setupEnterKeyEvent(): void {
       }
     }
   };
-  
+
   document.addEventListener("keydown", handleEnterKey);
 }
 
