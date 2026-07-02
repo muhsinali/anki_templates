@@ -24,6 +24,14 @@ npx tsc -p tsconfig.json --noEmit  # Type-check only (build does not type-check)
 
 `npm run build:templates` is an alias for `npm run build`.
 
+A `Makefile` wraps these for convenience — run `make` alone to list targets:
+
+```bash
+make build      # = npm run build
+make test       # = npm test
+make check      # test + build (run before committing)
+```
+
 ## Directory Structure
 
 ```
@@ -43,6 +51,7 @@ npx tsc -p tsconfig.json --noEmit  # Type-check only (build does not type-check)
 │   └── styling.css                # MANUALLY MAINTAINED - not generated
 ├── documentation/
 │   └── architecture-diagrams/     # Mermaid diagrams 01-06 + index README
+├── Makefile                       # Dev shortcuts (make help / build / test / check)
 ├── BUILD.md                       # Build/test/troubleshooting guide
 └── dist/                          # Output of manual `npx tsc` only (gitignored, unused by build)
 ```

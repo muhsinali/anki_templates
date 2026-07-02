@@ -110,6 +110,9 @@ npm run build   # Regenerate code_cards/*.html from src/ + templates/
 npm test        # Run the Jest test suite
 ```
 
+Prefer `make`? Run `make` on its own to list the available shortcuts — `make check`
+(tests + build) is the one to run before committing.
+
 - **[BUILD.md](BUILD.md)** — full build, test, and troubleshooting guide
 - **[Architecture diagrams](documentation/architecture-diagrams/README.md)** — Mermaid diagrams of the build pipeline and runtime data flow
 

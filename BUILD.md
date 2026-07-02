@@ -26,6 +26,20 @@ npm test        # Run all tests
 
 `npm run build:templates` is an alias for `npm run build`.
 
+### Make targets
+
+A `Makefile` wraps the common commands. Run `make` on its own to see this list:
+
+| Target | What it does |
+|--------|--------------|
+| `make install` | `npm install` |
+| `make build` | Regenerate the templates in `code_cards/` |
+| `make test` | Run the Jest test suite |
+| `make coverage` | Tests with a coverage report |
+| `make check` | test + build — run this before committing |
+| `make hooks` | Install the pre-commit git hooks |
+| `make clean` | Remove `dist/` and `coverage/` |
+
 ## Build Process Deep Dive
 
 ### What Happens During Build
