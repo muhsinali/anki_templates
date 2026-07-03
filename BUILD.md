@@ -332,9 +332,7 @@ mean the types are sound.
 ## File Dependencies
 
 ```
-tsconfig.json          ← TypeScript compiler options
-  ↓
-scripts/build-templates.ts
+scripts/build-templates.ts   ← compiler settings live in transpileSource()
   ↓
   ├── templates/*_template_base.html  (structure)
   ├── src/common.ts                   (shared logic)
@@ -342,6 +340,12 @@ scripts/build-templates.ts
   ↓
 code_cards/*_template.html  (output)
 ```
+
+Note: the build does **not** read `tsconfig.json` — that file (and
+`tsconfig.jest.json`, which extends it) is used only by `tsc --noEmit`
+type-checking and by the test runner. The build's compiler settings are
+hard-coded in `transpileSource()`, which the tests import so the two cannot
+drift.
 
 ## Pre-Commit Hooks
 
