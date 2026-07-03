@@ -168,13 +168,19 @@ npm test -- tests/common.test.ts  # Run specific test file
 Tests use Jest with jsdom to simulate a browser DOM:
 
 1. Set up DOM with `document.body.innerHTML = '<html>...'`
-2. Transpile the real `src/` files with `transpileSource()`, imported from
-   the build script — the same code path and compiler settings
+2. Load the real `src/` files with `loadScripts()` from the shared harness
+   (`tests/helpers.ts`), which transpiles them through the build script's
+   own `transpileSource()` — the same code path and compiler settings
    (`module: none`, `target: ES2022`) the shipped templates are built with,
-   so the two can never drift apart
-3. Execute transpiled code with `eval()` to attach functions to `window` —
-   so tests exercise the exact code that ships
-4. Test functions via `(window as any).functionName()`
+   so the two can never drift apart — caches the transpiled output per
+   file, and `eval()`s it so functions attach to `window`: tests exercise
+   the exact code that ships
+3. Test functions via `(window as any).functionName()`
+
+Note: eval'ing a template file also runs its trailing `initialize*()` call
+as a side effect, against whatever DOM is present — mirroring how the
+shipped `<script>` behaves in Anki. Tests that exercise the initializers
+call the `initialize*()` global directly on a prepared DOM.
 
 Template test files load `common.ts` before the template-specific file,
 mirroring the `%COMMON_JS%` → `%TEMPLATE_JS%` order in the built HTML.
@@ -204,8 +210,9 @@ Test configuration:
 
 | File | Role |
 |------|------|
-| `jest.config.js` | `ts-jest` preset, `jsdom` test environment, points at `tsconfig.jest.json` |
+| `jest.config.js` | `ts-jest` preset, `jsdom` test environment, `clearMocks`, points at `tsconfig.jest.json` |
 | `tsconfig.jest.json` | Extends `tsconfig.json`; adds `isolatedModules`, `noEmit`, jest/node types |
+| `tests/helpers.ts` | Shared harness: `loadScripts()` transpiles `src/` files via the build's `transpileSource()` (cached) and evals them into the window |
 
 ### Test Files
 
@@ -301,10 +308,9 @@ Key selectors:
 
 ### Tests fail but build works
 
-- Tests transpile through the build's own `transpileSource()`, so the
-  compiler settings cannot drift between the two
+- Tests transpile through the build's own `transpileSource()` (via
+  `tests/helpers.ts`), so the compiler settings cannot drift between the two
 - Check that `setupDom()` is called before testing functions
-- Ensure TextEncoder/TextDecoder polyfills are imported in test file
 
 ### Changes not appearing in Anki
 

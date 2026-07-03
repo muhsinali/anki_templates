@@ -1,21 +1,10 @@
 // Unit tests for common.ts functions
-import { TextEncoder, TextDecoder } from "util";
-(global as any).TextEncoder = TextEncoder;
-(global as any).TextDecoder = TextDecoder;
+import { loadScripts } from "./helpers";
 
-import { readFileSync } from "fs";
-import { join } from "path";
-import { transpileSource } from "../scripts/build-templates";
-
-// Helper to set up DOM and load common.ts into the existing jsdom window.
-// transpileSource is the build's own transpile step, so the tests always
-// use the exact compiler settings the shipped templates are built with.
+// Set up DOM and load common.ts into the existing jsdom window
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-  const sourcePath = join(process.cwd(), "src", "common.ts");
-  const transpiled = transpileSource(readFileSync(sourcePath, "utf8"), sourcePath);
-  // Execute the transpiled code so functions attach to the current window
-  (window as any).eval(transpiled);
+  loadScripts("common.ts");
 }
 
 describe("displayTags", () => {

@@ -132,11 +132,10 @@ Templates use Anki's mustache-style field placeholders:
 
 ## Testing
 
-Tests use Jest (`ts-jest` preset, jsdom environment — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
+Tests use Jest (`ts-jest` preset, jsdom environment, `clearMocks` — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
 1. Sets `document.body.innerHTML`
-2. Transpiles the real `src/` files with `transpileSource()` imported from the build script — the same code path and compiler settings (`module: none`, `target: ES2022`) as the build
-3. `eval()`s the transpiled code to attach functions to `window` — so tests exercise the exact code that ships
-4. Tests functions via `(window as any).functionName()`
+2. Loads the real `src/` files with `loadScripts()` from `tests/helpers.ts`, which transpiles them via the build script's `transpileSource()` (same code path and compiler settings as the build — `module: none`, `target: ES2022`), caches per file, and `eval()`s them to attach functions to `window` — so tests exercise the exact code that ships. Eval'ing a template file also runs its trailing `initialize*()` call as a side effect, as in Anki.
+3. Tests functions via `(window as any).functionName()`
 
 Test files load `common.ts` before the template-specific file, mirroring the placeholder order in the built HTML.
 

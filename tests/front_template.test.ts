@@ -1,25 +1,11 @@
 // Unit tests for front_template.ts functions
-import { TextEncoder, TextDecoder } from "util";
-(global as any).TextEncoder = TextEncoder;
-(global as any).TextDecoder = TextDecoder;
+import { loadScripts } from "./helpers";
 
-import { readFileSync } from "fs";
-import { join } from "path";
-import { transpileSource } from "../scripts/build-templates";
-
-// Helper to set up DOM and load front_template.ts into the existing jsdom window.
-// transpileSource is the build's own transpile step, so the tests always
-// use the exact compiler settings the shipped templates are built with.
+// Set up DOM and load front_template.ts (common.ts first, mirroring the
+// %COMMON_JS% → %TEMPLATE_JS% order in the built HTML)
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-
-  // Load common.ts functions first
-  const commonPath = join(process.cwd(), "src", "common.ts");
-  (window as any).eval(transpileSource(readFileSync(commonPath, "utf8"), commonPath));
-
-  // Then load front_template.ts functions
-  const frontPath = join(process.cwd(), "src", "front_template.ts");
-  (window as any).eval(transpileSource(readFileSync(frontPath, "utf8"), frontPath));
+  loadScripts("common.ts", "front_template.ts");
 }
 
 describe("Front Template Functions", () => {
@@ -59,15 +45,20 @@ describe("Front Template Functions", () => {
     test("attaches event listener when DOM is loading", () => {
       setupDom();
       const callback = jest.fn();
-      // Mock document.readyState to simulate loading state
+      // Shadow document.readyState to simulate loading state (configurable
+      // so it can be removed afterwards — previously this override leaked
+      // into every later test in the file)
       Object.defineProperty(document, "readyState", {
         value: "loading",
-        writable: true,
+        configurable: true,
       });
       const addEventListenerSpy = jest.spyOn(document, "addEventListener");
       (window as any).setupDOMContentLoaded(callback);
       expect(addEventListenerSpy).toHaveBeenCalledWith("DOMContentLoaded", callback);
       addEventListenerSpy.mockRestore();
+      // Drop the own-property shadow so the prototype getter ("complete")
+      // shows through again for subsequent tests
+      delete (document as any).readyState;
     });
   });
 
@@ -124,6 +115,41 @@ describe("Front Template Functions", () => {
       const hint = document.getElementById("hint") as HTMLElement;
       hint.dispatchEvent(new window.Event("touchstart"));
       expect(hint.className).toBe("shown");
+    });
+  });
+
+  describe("initializeFrontTemplate", () => {
+    test("wires up the whole front card in one call", () => {
+      setupDom(
+        '<input name="x"><div id="hint" class="hidden"></div>' +
+          '<div id="content_tag_left"></div><a></a>',
+      );
+      delete (window as any).data;
+      (window as any).initializeFrontTemplate();
+
+      // window.data created and kept in sync with typing
+      expect((window as any).data).toEqual({ x: "" });
+      const input = document.querySelector("input")!;
+      input.value = "abc";
+      input.dispatchEvent(new window.Event("input"));
+      expect((window as any).data).toEqual({ x: "abc" });
+
+      // cursor placed and mobile typing attributes set (readyState is
+      // "complete" in jsdom, so the deferred work runs synchronously)
+      expect(document.activeElement).toBe(input);
+      expect(input.getAttribute("spellcheck")).toBe("false");
+
+      // hint reveal wired
+      const hint = document.getElementById("hint")!;
+      hint.dispatchEvent(new window.Event("mousedown"));
+      expect(hint.className).toBe("shown");
+
+      // tags rendered (the raw {{Tags}} placeholder passes through
+      // untouched outside Anki) and link text set
+      expect(document.getElementById("content_tag_left")?.textContent).toBe(
+        "{{Tags}}",
+      );
+      expect(document.querySelector("a")?.textContent).toBe("Link");
     });
   });
 

@@ -1,25 +1,11 @@
 // Unit tests for back_template.ts functions
-import { TextEncoder, TextDecoder } from "util";
-(global as any).TextEncoder = TextEncoder;
-(global as any).TextDecoder = TextDecoder;
+import { loadScripts } from "./helpers";
 
-import { readFileSync } from "fs";
-import { join } from "path";
-import { transpileSource } from "../scripts/build-templates";
-
-// Helper to set up DOM and load back_template.ts into the existing jsdom window.
-// transpileSource is the build's own transpile step, so the tests always
-// use the exact compiler settings the shipped templates are built with.
+// Set up DOM and load back_template.ts (common.ts first, mirroring the
+// %COMMON_JS% → %TEMPLATE_JS% order in the built HTML)
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-
-  // Load common.ts functions first
-  const commonPath = join(process.cwd(), "src", "common.ts");
-  (window as any).eval(transpileSource(readFileSync(commonPath, "utf8"), commonPath));
-
-  // Then load back_template.ts functions
-  const backPath = join(process.cwd(), "src", "back_template.ts");
-  (window as any).eval(transpileSource(readFileSync(backPath, "utf8"), backPath));
+  loadScripts("common.ts", "back_template.ts");
 }
 
 describe("Back Template Functions", () => {
@@ -96,6 +82,33 @@ describe("Back Template Functions", () => {
       expect(inputs[0].style.backgroundColor).toBe("rgb(124, 232, 0)");
       // second input without name should be skipped (no background color set)
       expect(inputs[1].style.backgroundColor).toBe("");
+    });
+  });
+
+  describe("initializeBackTemplate", () => {
+    afterEach(() => {
+      delete (window as any).data;
+    });
+
+    test("grades the inputs from window.data when the front stored it", () => {
+      setupDom('<input name="A"><div id="content_tag_left"></div><a></a>');
+      (window as any).data = { A: "A" };
+      (window as any).initializeBackTemplate();
+
+      const input = document.querySelector("input")!;
+      expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
+      expect(input.value).toBe("A");
+      expect(document.querySelector("a")?.textContent).toBe("Link");
+    });
+
+    test("skips grading when window.data is missing, without throwing", () => {
+      setupDom('<input name="A">');
+      delete (window as any).data;
+
+      expect(() => (window as any).initializeBackTemplate()).not.toThrow();
+      const input = document.querySelector("input")!;
+      expect(input.style.backgroundColor).toBe("");
+      expect(input.value).toBe("");
     });
   });
 });
