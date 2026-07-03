@@ -39,8 +39,8 @@ jobs:
       - name: Type-check tests and scripts
         run: npx tsc -p tsconfig.jest.json --noEmit
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests (with enforced coverage thresholds)
+        run: npm test -- --coverage
 
       - name: Build templates
         run: npm run build

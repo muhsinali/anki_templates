@@ -153,15 +153,18 @@ file is absent the import fails silently.
 ```bash
 npm test                      # Run all tests
 npm test -- --watch           # Watch mode (re-run on changes)
-npm test -- --coverage        # Generate coverage report (see warning below)
+npm test -- --coverage        # Coverage report + enforced thresholds
 npm test -- tests/common.test.ts  # Run specific test file
 ```
 
-> **Warning:** the coverage report currently shows 0% for all `src/` files even though
-> the suite passes — the tests `eval()` transpiled source, which Jest's default
-> (Istanbul) instrumentation cannot see. Don't use the numbers. A verified fix (V8
-> coverage provider + `sourceURL` attribution) is specified in
-> [improve-test-infrastructure.md](improve-test-infrastructure.md), step 5.
+Coverage is real and enforced: `jest.config.js` uses the **V8 coverage
+provider** with `coverageThreshold` ratchets (near-total for `src/`, a floor
+for `scripts/`), and CI runs the suite with `--coverage`. The eval-based
+tests are visible to coverage because `tests/helpers.ts` transpiles with an
+inline source map and appends a `file://` `sourceURL` to each eval'd script —
+V8 attributes the executed code back to the real `.ts` files, line-precise.
+Jest's default (Istanbul) provider instruments at the transform stage and
+cannot see eval'd code, so don't switch `coverageProvider` back.
 
 ### Test Architecture
 
@@ -377,7 +380,7 @@ Every push and pull request runs the CI workflow
 npm ci                             # Clean install from package-lock.json
 npx tsc -p tsconfig.json --noEmit  # Type-check src/ (the build never type-checks)
 npx tsc -p tsconfig.jest.json --noEmit  # Type-check tests/ and scripts/
-npm test                           # Run the Jest suite
+npm test -- --coverage             # Run the Jest suite + coverage thresholds
 npm run build                      # Regenerate the templates
 git diff --exit-code code_cards/   # Fail if committed output drifted from src/
 ```

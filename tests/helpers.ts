@@ -26,7 +26,13 @@ export function loadScripts(...sourceFiles: string[]): void {
     let transpiled = transpileCache.get(sourceFile);
     if (transpiled === undefined) {
       const sourcePath = join(process.cwd(), "src", sourceFile);
-      transpiled = transpileSource(readFileSync(sourcePath, "utf8"), sourcePath);
+      // inlineSourceMap plus the file:// sourceURL let Jest's V8 coverage
+      // provider attribute the eval'd code back to the real .ts file —
+      // without them the eval'd sources are invisible to coverage
+      transpiled =
+        transpileSource(readFileSync(sourcePath, "utf8"), sourcePath, {
+          inlineSourceMap: true,
+        }) + `\n//# sourceURL=file://${sourcePath}`;
       transpileCache.set(sourceFile, transpiled);
     }
     window.eval(transpiled);

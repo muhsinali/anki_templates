@@ -30,6 +30,10 @@ const TEMPLATE_JS_PLACEHOLDER = "%TEMPLATE_JS%";
  *
  * @param source - TypeScript source text
  * @param fileName - Name used in error messages (typically the source path)
+ * @param overrides - Extra compiler options merged on top of the build
+ *                    settings. The build itself never passes any; the test
+ *                    harness adds inlineSourceMap so coverage can attribute
+ *                    eval'd code back to the .ts source.
  * @returns Transpiled JavaScript code as a string
  * @throws When the source has syntax errors (ts.transpile would otherwise
  *         silently emit mangled output and the build would report success)
@@ -38,11 +42,16 @@ const TEMPLATE_JS_PLACEHOLDER = "%TEMPLATE_JS%";
  * - module: None (no module system, functions attach to global scope)
  * - target: ES2022 (modern JavaScript with async/await, optional chaining, etc.)
  */
-export function transpileSource(source: string, fileName: string): string {
+export function transpileSource(
+  source: string,
+  fileName: string,
+  overrides: ts.CompilerOptions = {},
+): string {
   const diagnostics: ts.Diagnostic[] = [];
   const transpiled = ts.transpile(source, {
     module: ts.ModuleKind.None,     // No module system - functions are global
     target: ts.ScriptTarget.ES2022, // Modern JavaScript features
+    ...overrides,
   }, fileName, diagnostics);
 
   if (diagnostics.length > 0) {

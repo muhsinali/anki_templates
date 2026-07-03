@@ -152,7 +152,7 @@ Test files load `common.ts` before the template-specific file, mirroring the pla
 7. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
 8. **URL field**: Must paste with `Ctrl+Shift+V` (plain text) in Anki to avoid link formatting issues
 9. **Build does not type-check**: syntax errors fail the build (transpile diagnostics are checked), but type errors sail through — run `npx tsc -p tsconfig.json --noEmit` to catch them
-10. **Coverage reports are blind**: `npm test -- --coverage` reports 0% for all `src/` files even with the whole suite passing — tests `eval()` transpiled source, which Jest's Istanbul instrumentation cannot see. A verified fix (V8 coverage provider + `sourceURL`) is specified in `improve-test-infrastructure.md` step 5.
+10. **Coverage requires the V8 provider**: `jest.config.js` sets `coverageProvider: 'v8'` and `tests/helpers.ts` transpiles with an inline source map + `file://` `sourceURL` so eval'd code is attributed to the real `src/` files. Do not switch back to Istanbul — it instruments at the transform stage and reports 0% for everything the eval-based tests exercise. Thresholds are enforced (`coverageThreshold`), and CI runs `npm test -- --coverage`.
 
 ## Styling Reference
 
