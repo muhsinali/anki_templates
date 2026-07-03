@@ -31,7 +31,8 @@ A `Makefile` wraps these for convenience — run `make` alone to list targets:
 ```bash
 make build      # = npm run build
 make test       # = npm test
-make check      # test + build (run before committing)
+make typecheck  # tsc --noEmit for both tsconfigs
+make check      # typecheck + test + build (run before committing)
 ```
 
 ## Directory Structure
@@ -40,7 +41,8 @@ make check      # test + build (run before committing)
 ├── src/                           # TypeScript source files
 │   ├── common.ts                  # Shared: displayTags, prettifyTag, setLinkText
 │   ├── front_template.ts          # Front card: placeCursor, storeInput, setupHint, etc.
-│   └── back_template.ts           # Back card: parseInput, revealAnswer
+│   ├── back_template.ts           # Back card: parseInput, revealAnswer
+│   └── global.d.ts                # Window contract: window.data, window.pycmd
 ├── templates/                     # Base HTML with placeholders
 │   ├── front_template_base.html   # Contains %COMMON_JS% and %TEMPLATE_JS%
 │   └── back_template_base.html    # Re-renders {{Front}} (see Data Flow below)
@@ -135,7 +137,7 @@ Templates use Anki's mustache-style field placeholders:
 Tests use Jest (`ts-jest` preset, jsdom environment, `clearMocks` — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
 1. Sets `document.body.innerHTML`
 2. Loads the real `src/` files with `loadScripts()` from `tests/helpers.ts`, which transpiles them via the build script's `transpileSource()` (same code path and compiler settings as the build — `module: none`, `target: ES2022`), caches per file, and `eval()`s them to attach functions to `window` — so tests exercise the exact code that ships. Eval'ing a template file also runs its trailing `initialize*()` call as a side effect, as in Anki.
-3. Tests functions via `(window as any).functionName()`
+3. Calls the functions as **bare typed globals** (e.g. `storeInput()`, `revealAnswer(data)`): the `src/` files are global scripts in the jest tsconfig's program, so their declarations are ambient and fully typed in tests — renaming or re-signaturing a `src/` function breaks test compilation, not just the runtime. `window.data` / `window.pycmd` are typed via `src/global.d.ts`.
 
 Test files load `common.ts` before the template-specific file, mirroring the placeholder order in the built HTML.
 
@@ -172,6 +174,7 @@ Key CSS selectors in `code_cards/styling.css`:
 - End-of-file fixer
 - YAML/JSON validation
 - Line ending normalization (→ LF)
+- **TypeScript must type-check before commit** (both tsconfigs, `--noEmit`)
 - **Jest tests must pass before commit**
 
 Install with `pre-commit install`; run manually with `pre-commit run --all-files`.

@@ -13,17 +13,17 @@ describe("Back Template Functions", () => {
     test("normalizes quotes and removes whitespace", () => {
       setupDom();
       const input = " “hello” \n  ‘world’ ";
-      expect((window as any).parseInput(input)).toBe('"hello"\'world\'');
+      expect(parseInput(input)).toBe('"hello"\'world\'');
     });
 
     test("leaves backticks untouched", () => {
       setupDom();
-      expect((window as any).parseInput("`template ${x}`")).toBe("`template${x}`");
+      expect(parseInput("`template ${x}`")).toBe("`template${x}`");
     });
 
     test("strips non-breaking spaces", () => {
       setupDom();
-      expect((window as any).parseInput("git\u00A0reset\u00A0--hard")).toBe("gitreset--hard");
+      expect(parseInput("git\u00A0reset\u00A0--hard")).toBe("gitreset--hard");
     });
   });
 
@@ -35,7 +35,7 @@ describe("Back Template Functions", () => {
 
     test("colors inputs and sets values correctly", () => {
       const data = { "A B": " A B ", C: "c" };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const inputs = document.querySelectorAll("input");
       // first input should be marked correct
@@ -53,7 +53,7 @@ describe("Back Template Functions", () => {
       const html = `<input name="print(“hi”)">`;
       setupDom(html);
       const data = { "print(“hi”)": 'print("hi")' };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const input = document.querySelector("input")!;
       expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
@@ -64,7 +64,7 @@ describe("Back Template Functions", () => {
       const html = `<input name="print('hi')">`;
       setupDom(html);
       const data = { "print('hi')": "print(‘hi’)" };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const input = document.querySelector("input")!;
       expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
@@ -75,7 +75,7 @@ describe("Back Template Functions", () => {
       const html = `<input name="A"><input>`;
       setupDom(html);
       const data = { A: "A" };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const inputs = document.querySelectorAll("input");
       // first input with name should be processed
@@ -87,13 +87,13 @@ describe("Back Template Functions", () => {
 
   describe("initializeBackTemplate", () => {
     afterEach(() => {
-      delete (window as any).data;
+      delete window.data;
     });
 
     test("grades the inputs from window.data when the front stored it", () => {
       setupDom('<input name="A"><div id="content_tag_left"></div><a></a>');
-      (window as any).data = { A: "A" };
-      (window as any).initializeBackTemplate();
+      window.data = { A: "A" };
+      initializeBackTemplate();
 
       const input = document.querySelector("input")!;
       expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
@@ -103,9 +103,9 @@ describe("Back Template Functions", () => {
 
     test("skips grading when window.data is missing, without throwing", () => {
       setupDom('<input name="A">');
-      delete (window as any).data;
+      delete window.data;
 
-      expect(() => (window as any).initializeBackTemplate()).not.toThrow();
+      expect(() => initializeBackTemplate()).not.toThrow();
       const input = document.querySelector("input")!;
       expect(input.style.backgroundColor).toBe("");
       expect(input.value).toBe("");

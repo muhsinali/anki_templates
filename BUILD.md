@@ -36,7 +36,8 @@ A `Makefile` wraps the common commands. Run `make` on its own to see this list:
 | `make build` | Regenerate the templates in `code_cards/` |
 | `make test` | Run the Jest test suite |
 | `make coverage` | Tests with a coverage report |
-| `make check` | test + build — run this before committing |
+| `make typecheck` | `tsc --noEmit` for both tsconfigs |
+| `make check` | typecheck + test + build — run this before committing |
 | `make hooks` | Install the pre-commit git hooks |
 | `make clean` | Remove `dist/` and `coverage/` |
 
@@ -130,6 +131,7 @@ Two ordering guarantees matter here:
 | `src/common.ts` | Shared functions (both card sides) | `displayTags`, `prettifyTag`, `setLinkText` |
 | `src/front_template.ts` | Front card logic | `placeCursor`, `storeInput`, `setupHint`, `setupEnterKeyEvent` |
 | `src/back_template.ts` | Back card logic | `parseInput`, `revealAnswer` |
+| `src/global.d.ts` | The `Window` contract: `window.data` (state that crosses the flip) and `window.pycmd` (Anki's backend hook), both optional | — |
 
 ## Output Files
 
@@ -178,7 +180,12 @@ Tests use Jest with jsdom to simulate a browser DOM:
    so the two can never drift apart — caches the transpiled output per
    file, and `eval()`s it so functions attach to `window`: tests exercise
    the exact code that ships
-3. Test functions via `(window as any).functionName()`
+3. Call the functions as **bare typed globals** (`storeInput()`,
+   `revealAnswer(data)`, …): the `src/` files are global scripts inside
+   `tsconfig.jest.json`'s program, so their declarations are ambient and
+   fully typed in tests — renaming or re-signaturing a `src/` function
+   fails `tsc`, not just the test run. `window.data` and `window.pycmd`
+   are typed by `src/global.d.ts`
 
 Note: eval'ing a template file also runs its trailing `initialize*()` call
 as a side effect, against whatever DOM is present — mirroring how the
@@ -332,11 +339,13 @@ Key selectors:
 ### TypeScript errors
 
 ```bash
-npx tsc -p tsconfig.json --noEmit  # Check for type errors without emitting
+make typecheck  # tsc --noEmit for both tsconfigs
 ```
 
-Remember: `npm run build` does not type-check, so a successful build does not
-mean the types are sound.
+Remember: `npm run build` does not type-check (it only fails on syntax
+errors), so a successful build does not mean the types are sound. The
+pre-commit hook and CI both run the type-check, so type errors cannot
+reach a commit or a merge unnoticed.
 
 ## File Dependencies
 
@@ -364,6 +373,7 @@ The project uses pre-commit hooks (`.pre-commit-config.yaml`):
 - End-of-file fixer
 - YAML/JSON validation
 - Line ending normalization (→ LF)
+- **TypeScript must type-check** (both tsconfigs, `--noEmit`)
 - **Jest tests must pass**
 
 ```bash

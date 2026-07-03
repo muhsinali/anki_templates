@@ -25,8 +25,8 @@ function revealAnswer(data: Record<string, string>): void {
 
 // back template initialization
 function initializeBackTemplate(): void {
-  if ((window as any).data) {
-    revealAnswer((window as any).data);
+  if (window.data) {
+    revealAnswer(window.data);
   }
   displayTags("{{Tags}}");
   setLinkText();

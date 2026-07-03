@@ -12,20 +12,20 @@ describe("Front Template Functions", () => {
   describe("placeCursor", () => {
     test("focuses first input if exists", () => {
       setupDom('<input id="a"><input id="b">');
-      (window as any).placeCursor();
+      placeCursor();
       expect(document.activeElement?.id).toBe("a");
     });
 
     test("does nothing when no inputs exist", () => {
       setupDom();
-      expect(() => (window as any).placeCursor()).not.toThrow();
+      expect(() => placeCursor()).not.toThrow();
     });
   });
 
   describe("setInputAttributes", () => {
     test("sets attributes on inputs", () => {
       setupDom("<input><input>");
-      (window as any).setInputAttributes();
+      setInputAttributes();
       const input = document.querySelector("input")!;
       expect(input.getAttribute("autocapitalize")).toBe("off");
       expect(input.getAttribute("autocomplete")).toBe("off");
@@ -38,7 +38,7 @@ describe("Front Template Functions", () => {
     test("calls callback immediately when DOM is already loaded", () => {
       setupDom();
       const callback = jest.fn();
-      (window as any).setupDOMContentLoaded(callback);
+      setupDOMContentLoaded(callback);
       expect(callback).toHaveBeenCalled();
     });
 
@@ -53,7 +53,7 @@ describe("Front Template Functions", () => {
         configurable: true,
       });
       const addEventListenerSpy = jest.spyOn(document, "addEventListener");
-      (window as any).setupDOMContentLoaded(callback);
+      setupDOMContentLoaded(callback);
       expect(addEventListenerSpy).toHaveBeenCalledWith("DOMContentLoaded", callback);
       addEventListenerSpy.mockRestore();
       // Drop the own-property shadow so the prototype getter ("complete")
@@ -69,22 +69,22 @@ describe("Front Template Functions", () => {
     beforeEach(() => {
       setupDom();
       mockPycmd = jest.fn();
-      (window as any).pycmd = mockPycmd;
+      window.pycmd = mockPycmd;
       addEventListenerSpy = jest.spyOn(document, "addEventListener");
     });
 
     afterEach(() => {
-      delete (window as any).pycmd;
+      delete window.pycmd;
       addEventListenerSpy.mockRestore();
     });
 
     test("attaches keydown event listener", () => {
-      (window as any).setupEnterKeyEvent();
+      setupEnterKeyEvent();
       expect(addEventListenerSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
     });
 
     test("calls pycmd('ans') when Enter key is pressed", () => {
-      (window as any).setupEnterKeyEvent();
+      setupEnterKeyEvent();
 
       const keydownHandler = addEventListenerSpy.mock.calls.find(
         call => call[0] === "keydown"
@@ -103,7 +103,7 @@ describe("Front Template Functions", () => {
   describe("setupHint", () => {
     test("a mousedown event should reveal the hint", () => {
       setupDom('<div id="hint"></div>');
-      (window as any).setupHint();
+      setupHint();
       const hint = document.getElementById("hint") as HTMLElement;
       hint.dispatchEvent(new window.Event("mousedown"));
       expect(hint.className).toBe("shown");
@@ -111,7 +111,7 @@ describe("Front Template Functions", () => {
 
     test("a touchstart event should reveal the hint", () => {
       setupDom('<div id="hint"></div>');
-      (window as any).setupHint();
+      setupHint();
       const hint = document.getElementById("hint") as HTMLElement;
       hint.dispatchEvent(new window.Event("touchstart"));
       expect(hint.className).toBe("shown");
@@ -124,15 +124,15 @@ describe("Front Template Functions", () => {
         '<input name="x"><div id="hint" class="hidden"></div>' +
           '<div id="content_tag_left"></div><a></a>',
       );
-      delete (window as any).data;
-      (window as any).initializeFrontTemplate();
+      delete window.data;
+      initializeFrontTemplate();
 
       // window.data created and kept in sync with typing
-      expect((window as any).data).toEqual({ x: "" });
+      expect(window.data).toEqual({ x: "" });
       const input = document.querySelector("input")!;
       input.value = "abc";
       input.dispatchEvent(new window.Event("input"));
-      expect((window as any).data).toEqual({ x: "abc" });
+      expect(window.data).toEqual({ x: "abc" });
 
       // cursor placed and mobile typing attributes set (readyState is
       // "complete" in jsdom, so the deferred work runs synchronously)
@@ -156,7 +156,7 @@ describe("Front Template Functions", () => {
   describe("storeInput", () => {
     test("stores values on input events", () => {
       setupDom('<input name="x"><input name="y">');
-      const store = (window as any).storeInput();
+      const store = storeInput();
       const inputs = document.querySelectorAll("input");
       inputs[0].value = "a";
       inputs[0].dispatchEvent(new window.Event("input"));
@@ -171,7 +171,7 @@ describe("Front Template Functions", () => {
       expect(inputs[0].value).toBe("initial");
       expect(inputs[1].value).toBe("");
 
-      const store = (window as any).storeInput();
+      const store = storeInput();
       expect(store.x).toBe("initial");
       expect(Object.keys(store)).toEqual(["x"]);
     });

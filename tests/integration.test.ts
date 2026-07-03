@@ -69,8 +69,8 @@ const GREEN = "rgb(124, 232, 0)";
 const RED = "rgb(240, 128, 128)";
 
 beforeEach(() => {
-  delete (window as any).data;
-  delete (window as any).pycmd;
+  delete window.data;
+  delete window.pycmd;
 });
 
 describe("card lifecycle", () => {
@@ -91,14 +91,14 @@ describe("card lifecycle", () => {
     // the system level
     typeInto(frontInputs[0], "console.log");
     typeInto(frontInputs[1], 'print("hi")');
-    expect((window as any).data).toEqual({
+    expect(window.data).toEqual({
       "console.log": "console.log",
       "print(“hi”)": 'print("hi")',
     });
 
     // Enter asks Anki to flip the card
     const pycmd = jest.fn();
-    (window as any).pycmd = pycmd;
+    window.pycmd = pycmd;
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(pycmd).toHaveBeenCalledWith("ans");
 
