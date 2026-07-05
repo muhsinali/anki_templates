@@ -35,7 +35,7 @@ sequenceDiagram
     Anki->>Back: flip to Back in the same webview
 
     %% Back card grades against the saved global state.
-    Note over Back: Front field re-renders; inputs are recreated empty
+    Note over Back: Front field re-renders — inputs are recreated empty
     Note over Back: initializeBackTemplate() runs on load
     Back->>Data: read window.data
     Back->>Back: verify inputNames signature

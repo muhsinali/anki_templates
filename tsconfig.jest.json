@@ -14,7 +14,6 @@
     "tests/**/*.ts"
   ],
   "exclude": [
-    "dist",
     "node_modules"
   ]
 }

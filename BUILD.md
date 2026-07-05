@@ -89,7 +89,7 @@ The TypeScript compiler is configured with `module: none` because:
 - Anki's webview doesn't support ES modules
 - Functions must attach to the global `window` scope
 - The front template stores data on `window.data`, which the back template reads
-  after checking the input-name signature
+  after validating its runtime shape and checking the input-name signature
 
 ### Template Placeholders
 
@@ -393,7 +393,9 @@ Every push and pull request runs the CI workflow
 ```bash
 npm ci                             # Clean install from package-lock.json
 python -m pip install "pre-commit>=4,<5"
-pre-commit run --all-files --show-diff-on-failure --color=always
+# typecheck/jest-tests hooks are SKIPped here — the dedicated steps below
+# run them anyway (jest with coverage, which the hook lacks)
+SKIP=typecheck,jest-tests pre-commit run --all-files --show-diff-on-failure --color=always
 npx tsc -p tsconfig.json --noEmit  # Type-check src/ (the build never type-checks)
 npx tsc -p tsconfig.jest.json --noEmit  # Type-check tests/ and scripts/
 npm test -- --coverage             # Run the Jest suite + coverage thresholds

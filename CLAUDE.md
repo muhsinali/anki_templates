@@ -83,7 +83,7 @@ Anki renders the front and back in the **same webview/JS context**, so globals s
    - `input` event listeners keep `window.data.values` synced as the user types
 2. **Flip** (Enter → `pycmd("ans")`): same JS context, so `window.data` persists; the back's `{{Front}}` render recreates the inputs empty
 3. **Back template** (`initializeBackTemplate`):
-   - `inputSignatureMatches(window.data)` checks that the recreated input names match the front-side signature
+   - `isCardInputData(window.data)` validates the runtime shape (the webview can hold a stale value from an older template version), then `inputSignatureMatches` checks that the recreated input names match the front-side signature
    - `revealAnswer(window.data.values)` grades each recreated input against its `name`, marks it with classes/text labels, preserves wrong attempts, locks it read-only, and overwrites its value with the correct answer
 
 The `<script>` block sits at the end of each template, so the `{{Front}}` inputs above it already exist when `storeInput()` runs synchronously. Only `setInputAttributes()`/`placeCursor()` are deferred via `setupDOMContentLoaded()`.
@@ -131,6 +131,7 @@ Templates use Anki's mustache-style field placeholders:
 
 ### back_template.ts
 - `parseInput(str)` - Normalizes quotes (`""`→`"`, `''`→`'`) and strips whitespace
+- `isCardInputData(value)` - Runtime shape guard for `window.data` (stale/foreign values in the long-lived webview never crash the back)
 - `inputSignatureMatches(data)` - Checks that stored front-side input names match the back-side inputs before grading
 - `revealAnswer(data)` - Marks inputs correct/wrong, sets read-only, overwrites each input's value with the correct answer, and adds visible/accessible feedback
 
@@ -156,7 +157,7 @@ Test files load `common.ts` before the template-specific file, mirroring the pla
 5. **Hint classes differ per side**: front hint starts as `class="hidden"` (click to reveal); back hint is hard-coded `class="shown"`
 6. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
 7. **URL field**: raw `http://` / `https://` text and existing anchors both render as a compact `Link`; invalid text is left alone
-8. **Stale data guard**: back grading is skipped when the stored input-name signature does not match the recreated inputs
+8. **Stale data guard**: back grading is skipped when `window.data` is not the expected `{ values, inputNames }` shape or the stored input-name signature does not match the recreated inputs
 9. **Build does not type-check**: syntax errors fail the build (transpile diagnostics are checked), but type errors sail through — run `npx tsc -p tsconfig.json --noEmit` to catch them
 10. **Coverage requires the V8 provider**: `jest.config.js` sets `coverageProvider: 'v8'` and `tests/helpers.ts` transpiles with an inline source map + `file://` `sourceURL` so eval'd code is attributed to the real `src/` files. Do not switch back to Istanbul — it instruments at the transform stage and reports 0% for everything the eval-based tests exercise. Thresholds are enforced (`coverageThreshold`), and CI runs `npm test -- --coverage`.
 

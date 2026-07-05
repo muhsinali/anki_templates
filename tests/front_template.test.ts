@@ -193,6 +193,19 @@ describe("Front Template Functions", () => {
       expect(store).toEqual({ values: { x: "a", y: "b" }, inputNames: ["x", "y"] });
     });
 
+    test("stores prototype-clashing input names as plain values", () => {
+      setupDom('<input name="__proto__"><input name="constructor">');
+      const store = storeInput();
+      expect(store.inputNames).toEqual(["__proto__", "constructor"]);
+      expect(Object.keys(store.values)).toEqual(["__proto__", "constructor"]);
+
+      const inputs = document.querySelectorAll("input");
+      inputs[0].value = "typed";
+      inputs[0].dispatchEvent(new window.Event("input"));
+      expect(store.values["__proto__"]).toBe("typed");
+      expect(store.values["constructor"]).toBe("");
+    });
+
     test("stores initial values and skips inputs without names", () => {
       setupDom('<input name="x" value="initial"><input>');
       const inputs = document.querySelectorAll("input");

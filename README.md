@@ -69,6 +69,10 @@ When checking your answer:
      - **Back template**: `code_cards/back_template.html`
      - **Styling**: `code_cards/styling.css`
 
+   > Updating to a newer version later? Re-paste all three files together — the
+   > grading feedback relies on `styling.css` classes matching the template
+   > JavaScript.
+
 4. **Customize to Your Taste**\
    Tweak CSS or HTML snippets to match your personal coding style and workflow.
 
@@ -111,7 +115,7 @@ npm test        # Run the Jest test suite
 ```
 
 Prefer `make`? Run `make` on its own to list the available shortcuts — `make check`
-(tests + build) is the one to run before committing.
+(typecheck + tests + build) is the one to run before committing.
 
 - **[BUILD.md](BUILD.md)** — full build, test, and troubleshooting guide
 - **[Architecture diagrams](documentation/architecture-diagrams/README.md)** — Mermaid diagrams of the build pipeline and runtime data flow
