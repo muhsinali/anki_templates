@@ -5,6 +5,7 @@
     "module": "none",
     "isolatedModules": true,
     "noEmit": true,
+    "skipLibCheck": true,
     "types": ["jest", "node"]
   },
   "include": [

@@ -141,6 +141,8 @@ Tests use Jest (`ts-jest` preset, jsdom environment, `clearMocks` — see `jest.
 
 Test files load `common.ts` before the template-specific file, mirroring the placeholder order in the built HTML.
 
+`tests/property.test.ts` adds property-based tests (fast-check) for the pure functions — `parseInput` idempotence and quote-style-insensitive grading, `prettifyTag` never emitting `::`/`_`.
+
 `tests/integration.test.ts` additionally tests the built templates end-to-end: it builds both sides in-memory via `transpileSource()` + `injectJavaScript()`, renders Anki fields with a small mustache substitute (applied everywhere, script included), loads the front (body set, extracted script eval'd — `innerHTML` never executes scripts), types and presses Enter against a `pycmd` mock, then flips as Anki does (same window, fresh DOM) and asserts the grading. Note: the built script's `"use strict"` keeps eval'd function declarations scoped to the eval rather than making them globals — intentional and fine, since only `window.data` must cross the flip and it is assigned to `window` explicitly. Don't "fix" this.
 
 ## Known Limitations & Gotchas

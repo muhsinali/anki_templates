@@ -231,6 +231,7 @@ Test configuration:
 |-----------|-----------|
 | `tests/build_templates.test.ts` | Transpile diagnostics, placeholder validation, literal JavaScript injection, base-template invariants |
 | `tests/integration.test.ts` | End-to-end card lifecycle: in-memory build → field render → front → type → Enter → flip → grading |
+| `tests/property.test.ts` | Property-based (fast-check): `parseInput` idempotence, no whitespace/curly quotes in output, quote-style-insensitive grading; `prettifyTag` never emits `::`/`_`, idempotent |
 | `tests/common.test.ts` | `displayTags`, `prettifyTag`, `setLinkText` |
 | `tests/front_template.test.ts` | `placeCursor`, `storeInput`, `setupHint`, etc. |
 | `tests/back_template.test.ts` | `parseInput`, `revealAnswer` |
