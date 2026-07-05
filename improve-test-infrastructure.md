@@ -10,8 +10,9 @@
 > [07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md)
 > shows the architecture it produced.
 >
-> Follow-up on 2026-07-05: the repo now uses Node 26.4.0 as the tested
-> baseline and allows newer Node versions with `engines.node: ">=26.4.0"`.
+> Follow-up on 2026-07-05: the repo briefly pinned Node 26.4.0, then settled
+> on `engines.node: ">=24"` with CI and `.nvmrc` tracking the Node 26 major
+> line under a version-agnostic `checks` job name.
 
 This was a step-by-step plan for upgrading the testing infrastructure of the Anki code
 cards project, based on a full read-through of the source, tests, build script,
@@ -61,9 +62,9 @@ and — from step 7 on — the installed pre-commit hooks) before being pushed.
 **End state:** 48 tests across 6 suites (unit, build-script, property,
 integration) in ~1s; `src/` at 100% statements / 97.3% branches with
 thresholds enforced in CI; `scripts/` at 74.5% against a 60 floor; CI green
-on Node 26.4.0 for type-check ×2, tests + coverage, build, and the `code_cards/`
-drift gate; the same checks wired into pre-commit (type-check + tests) and
-`make check`.
+on the Node 26 line for type-check ×2, tests + coverage, build, and the
+`code_cards/` drift gate; the same checks wired into pre-commit (type-check +
+tests) and `make check`.
 
 ---
 
@@ -198,7 +199,7 @@ the fundamentals hold.
 > BUILD.md's aspirational CI section replaced with the real thing. Later
 > hardened in `f1d3e8d` (read-only token, concurrency cancellation) and
 > consolidated to a single Node 24 job in `08eb1f0`; the active baseline was
-> later moved to Node 26.4.0.
+> later moved to the Node 26 line (job name `checks`, engines `>=24`).
 
 **Why first.** Every other improvement only pays off if it runs on every change. Right
 now, tests run solely via an *optionally installed* pre-commit hook — a fresh clone, a

@@ -76,9 +76,10 @@ Two non-obvious mechanics, documented so nobody "fixes" them:
 
 ## 7b · The CI gate
 
-Runs on every push and pull request on Node 26.4.0, the tested baseline
-(`engines: ">=26.4.0"`, `.nvmrc` pins 26.4.0 locally). The CI job is designed
-to be the required PR status check, so any failed step keeps the PR red.
+Runs on every push and pull request on the Node 26 major line, the tested
+baseline (`engines: ">=24"`, `.nvmrc` tracks 26 locally). The CI job is named
+`checks` — deliberately version-agnostic — and is designed to be the required
+PR status check, so any failed step keeps the PR red.
 
 ```mermaid
 flowchart TB
@@ -90,7 +91,7 @@ flowchart TB
     tests["npm test -- --coverage"]
     build["npm run build"]
     drift["git diff --exit-code code_cards/"]
-    required_check["Required status check<br/>Node 26.4.0"]
+    required_check["Required status check<br/>checks"]
     merge_allowed(["PR merge allowed"])
     red_status(["PR stays red"])
 
@@ -136,7 +137,7 @@ The drift gate converts "remember to regenerate `code_cards/` after editing
 `src/`" into a hard failure and implicitly asserts the build is deterministic.
 
 To block PR merges, protect `main` in GitHub and require the CI job's status
-check, `Node 26.4.0` from the `CI` workflow. Enable "Require status checks to pass
+check, `checks` from the `CI` workflow. Enable "Require status checks to pass
 before merging" and "Require branches to be up to date before merging" so the
 green check must be current for the PR head.
 

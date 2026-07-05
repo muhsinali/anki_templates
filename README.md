@@ -106,7 +106,7 @@ If the field is empty or does not look like an HTTP(S) URL, no link is shown and
 
 ## ⚙️ Development
 
-Requires Node.js 26.4.0 or newer. `.nvmrc` and CI pin 26.4.0 as the tested baseline.
+Requires Node.js 24 or newer (`engines`); CI and `.nvmrc` track the Node 26 line.
 
 ```bash
 npm install     # Install dependencies

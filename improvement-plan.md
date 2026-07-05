@@ -8,8 +8,9 @@ Items 1-19 are implemented in the current tree with tests and docs updated.
 Item 20 is the only remaining external operation because GitHub branch
 protection is repository settings state, not a local code change.
 
-Follow-up on 2026-07-05: the Node policy now uses 26.4.0 as the tested
-baseline while allowing newer versions with `engines.node: ">=26.4.0"`.
+Follow-up on 2026-07-05: the Node policy briefly pinned 26.4.0 exactly, then
+settled (review feedback) on `engines.node: ">=24"` with CI and `.nvmrc`
+tracking the Node 26 major line under a version-agnostic `checks` job name.
 
 Status key:
 
@@ -74,9 +75,11 @@ Status key:
 
 ### Follow-up updates
 
-- **2026-07-05 Node baseline:** `package.json` and `package-lock.json` now use
-  `engines.node: ">=26.4.0"`; `.nvmrc` and CI pin `26.4.0` as the tested
-  baseline while allowing newer Node versions locally, and `@types/node` is on
+- **2026-07-05 Node baseline:** first pinned `26.4.0` exactly, then relaxed
+  after review: `engines.node: ">=24"` (the toolchain demonstrably runs on
+  older LTS lines), CI and `.nvmrc` track the Node `26` major so security
+  patches arrive automatically, the CI job is named `checks` so the required
+  status check never churns with version bumps, and `@types/node` stays on
   the 26 line.
 
 ### Docs updated
@@ -104,12 +107,13 @@ Status key:
 **Status: External.** The workflow exists in the repo, but merge protection only
 works after the GitHub repository settings require it.
 
-**Required setting.** Protect `main` and require the `Node 26.4.0` status check
-from the `CI` workflow. Also require branches to be up to date before merging
-so the green check applies to the PR head.
+**Required setting.** Protect `main` and require the `checks` status check
+from the `CI` workflow (the job name is deliberately version-agnostic so this
+rule survives Node bumps). Also require branches to be up to date before
+merging so the green check applies to the PR head.
 
 **Verification.** Use repository settings, the GitHub API, or a test PR to
-confirm that `main` requires the `Node 26.4.0` CI status before merge.
+confirm that `main` requires the `checks` CI status before merge.
 
 ---
 

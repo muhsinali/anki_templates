@@ -17,14 +17,17 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # Baseline supported runtime, matching .nvmrc and package.json's lower bound.
-    name: Node 26.4.0
+    # Version-agnostic job name: branch protection requires this check by
+    # name, so it must not churn when the Node line moves.
+    name: checks
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "26.4.0"
+          # Track the Node 26 major line (matches .nvmrc) so CI picks up
+          # 26.x security patches automatically; engines allows >=24.
+          node-version: "26"
           cache: npm
 
       - uses: actions/setup-python@v5
