@@ -13,13 +13,13 @@ module.exports = {
   // executable code, but Node 24's V8 coverage counts them as 0% rows,
   // which would sink the src/ threshold.
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', 'scripts/**/*.ts'],
-  // Ratchet: slightly below observed values (src ~100/97, scripts ~69/62 at
-  // the time of writing) so coverage can only stay level or rise. Files
-  // matching the src path are excluded from the global check, so "global"
-  // effectively guards scripts/.
+  // Ratchet: slightly below observed values (src ~99.6/97.8, scripts
+  // ~94/93/83 at the time of writing) so coverage can only stay level or
+  // rise. Files matching the src path are excluded from the global check,
+  // so "global" effectively guards scripts/.
   coverageThreshold: {
-    global: { statements: 60, branches: 60, functions: 55, lines: 60 },
-    './src/': { statements: 95, branches: 90, functions: 95, lines: 95 },
+    global: { statements: 90, branches: 90, functions: 80, lines: 90 },
+    './src/': { statements: 95, branches: 95, functions: 95, lines: 95 },
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
