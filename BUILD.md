@@ -9,9 +9,8 @@ This document explains how to build, test, and extend the Anki template system.
 
 ## Prerequisites
 
-- Node.js 26.4.0 or newer. CI and `.nvmrc` pin 26.4.0 as the tested
-  baseline, and `package.json` allows newer releases with
-  `engines.node: ">=26.4.0"`.
+- Node.js 24 or newer (`engines.node: ">=24"`). CI and `.nvmrc` track the
+  Node 26 major line, so 26.x is the tested baseline.
 - npm
 - [pre-commit](https://pre-commit.com/) (optional — only needed for the git hooks)
 
@@ -388,7 +387,7 @@ pre-commit run --all-files  # Run all hooks manually
 ## Continuous Integration
 
 Every push and pull request runs the CI workflow
-(`.github/workflows/ci.yml`) on Node 26.4.0:
+(`.github/workflows/ci.yml`) on the Node 26 line:
 
 ```bash
 npm ci                             # Clean install from package-lock.json
@@ -408,4 +407,4 @@ regenerated output. It also implicitly asserts the build is deterministic.
 
 A PR cannot merge green if it breaks pre-commit, the types, the tests, the
 build, or forgets to regenerate `code_cards/`. To make GitHub block the merge,
-protect `main` and require the `Node 26.4.0` status check from the `CI` workflow.
+protect `main` and require the `checks` status check from the `CI` workflow.
