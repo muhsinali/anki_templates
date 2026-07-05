@@ -1,9 +1,7 @@
-<!-- Disable automated zoom onto cursor on mobile devices -->
+<!-- Keep mobile browsers from zooming into answer inputs. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-<!-------- Card Content, Hint, Tags and URL -------->
 <div class="content_aligned">
-    <!------- Content and Hint ------->
     {{Front}}
 
     <br>
@@ -17,55 +15,56 @@
     {{/Hint}}
 </div>
 
-
-
-<!------- Tags and URL ------->
 <div id="content_tag_left" class="tag"></div>
 <div id="url_container">{{URL}}</div>
 
-
-
-<!-------- JavaScript -------->
 <script>
     "use strict";
-    // Common functions
-// parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
-function displayTags(tagsString) {
-    const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
-    const prettifiedTags = tags
-        .map(prettifyTag)
-        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-        .join(", ");
-    const content_tag = document.getElementById("content_tag_left");
-    if (content_tag)
-        content_tag.textContent = prettifiedTags;
+    function displayTags(tagsString) {
+    const tagContainer = document.getElementById("content_tag_left");
+    if (!tagContainer)
+        return;
+    tagContainer.textContent = formatTags(tagsString);
 }
-// converts "Computing::Machine_Learning" to "Computing - Machine Learning"
+function formatTags(tagsString) {
+    const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
+    return tags
+        .map(prettifyTag)
+        .sort(compareTags)
+        .join(", ");
+}
+function compareTags(left, right) {
+    return left.localeCompare(right, undefined, { sensitivity: "base" });
+}
 function prettifyTag(tag) {
     return tag.split("::").join(" - ").replace(/_/g, " ");
 }
-// render the optional URL field as a compact source link
 function setLinkText() {
     const container = document.getElementById("url_container");
     if (!container)
         return;
-    const anchor = container.querySelector("a");
-    if (anchor) {
-        anchor.textContent = "Link";
+    const existingLink = container.querySelector("a");
+    if (existingLink) {
+        existingLink.textContent = "Link";
         return;
     }
     const rawUrl = container.textContent?.trim() ?? "";
-    if (!/^https?:\/\//i.test(rawUrl))
+    if (!isHttpUrl(rawUrl))
         return;
-    let parsedUrl;
+    replaceTextWithSourceLink(container, rawUrl);
+}
+function isHttpUrl(rawUrl) {
+    if (!/^https?:\/\//i.test(rawUrl))
+        return false;
     try {
-        parsedUrl = new URL(rawUrl);
+        const parsedUrl = new URL(rawUrl);
+        return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
     }
     catch {
-        return;
+        return false;
     }
-    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")
-        return;
+}
+function replaceTextWithSourceLink(container, rawUrl) {
     const link = document.createElement("a");
     link.href = rawUrl;
     link.textContent = "Link";
@@ -73,72 +72,68 @@ function setLinkText() {
     container.append(link);
 }
 
-    // Front template specific functions
-// automatically place cursor onto first input field if it exists
-function placeCursor() {
-    const firstElement = document.getElementsByTagName("input")[0];
-    if (firstElement)
-        firstElement.focus();
+    function placeCursor() {
+    document.querySelector("input")?.focus();
 }
-// ensures it is easier to type code on mobile devices
 function setInputAttributes() {
-    const inputs = document.querySelectorAll("input");
-    inputs.forEach((input) => {
-        input.setAttribute("autocapitalize", "off");
-        input.setAttribute("autocomplete", "off");
-        input.setAttribute("autocorrect", "off");
-        input.setAttribute("spellcheck", "false");
-    });
+    getInputs().forEach(disableMobileTypingAssists);
 }
-// set up DOMContentLoaded event listener to execute initialization functions
+function getInputs() {
+    return document.querySelectorAll("input");
+}
+function disableMobileTypingAssists(input) {
+    input.setAttribute("autocapitalize", "off");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("spellcheck", "false");
+}
 function setupDOMContentLoaded(callback) {
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", callback);
+        return;
     }
-    else {
-        callback();
-    }
+    callback();
 }
-// handle Enter/Return key press to show answer (does not yet work on iPhone)
 function setupEnterKeyEvent() {
     if (window.enterKeyHandlerBound)
         return;
     const handleEnterKey = (event) => {
-        if (event.key === "Enter" && !event.isComposing) {
-            event.preventDefault();
-            if (typeof window.pycmd !== "undefined") {
-                window.pycmd("ans");
-            }
-        }
+        if (!shouldFlipCard(event))
+            return;
+        event.preventDefault();
+        window.pycmd?.("ans");
     };
     document.addEventListener("keydown", handleEnterKey);
     window.enterKeyHandlerBound = true;
 }
-// attach touch and mouse event listeners to reveal the hint element when triggered
+function shouldFlipCard(event) {
+    return event.key === "Enter" && !event.isComposing;
+}
 function setupHint() {
     const hint = document.getElementById("hint");
-    if (hint) {
-        hint.addEventListener("touchstart", () => (hint.className = "shown"));
-        hint.addEventListener("mousedown", () => (hint.className = "shown"));
-    }
+    if (!hint)
+        return;
+    const revealHint = () => {
+        hint.className = "shown";
+    };
+    hint.addEventListener("touchstart", revealHint);
+    hint.addEventListener("mousedown", revealHint);
 }
-// store all input values and their card signature into an object
 function storeInput() {
     const data = { values: {}, inputNames: [] };
-    document.querySelectorAll("input").forEach((input) => {
-        const inputName = input.name;
-        // Skip empty inputs
-        if (inputName) {
-            data.inputNames.push(inputName);
-            data.values[inputName] = input.value;
-            input.addEventListener("input", () => {
-                data.values[inputName] = input.value;
-            });
-        }
-    });
+    getInputs().forEach((input) => rememberInput(data, input));
     return data;
 }
-// front template initialization
+function rememberInput(data, input) {
+    const inputName = input.name;
+    if (!inputName)
+        return;
+    data.inputNames.push(inputName);
+    data.values[inputName] = input.value;
+    input.addEventListener("input", () => {
+        data.values[inputName] = input.value;
+    });
+}
 function initializeFrontTemplate() {
     window.data = storeInput();
     setupDOMContentLoaded(function () {
@@ -150,7 +145,6 @@ function initializeFrontTemplate() {
     displayTags("{{Tags}}");
     setLinkText();
 }
-// Initialize when loaded
 initializeFrontTemplate();
 
 </script>

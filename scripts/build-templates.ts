@@ -1,46 +1,25 @@
-/**
- * Anki Template Build Script
- *
- * This script generates HTML template files for Anki flashcards by combining:
- * 1. Base HTML templates (structure and layout)
- * 2. Common TypeScript functions (shared between front and back)
- * 3. Template-specific TypeScript functions (front or back specific)
- *
- * The build process:
- * - Reads TypeScript source files from src/
- * - Transpiles TypeScript to JavaScript using the TypeScript compiler
- * - Injects the JavaScript into HTML template placeholders
- * - Outputs final HTML files to code_cards/ directory
- *
- * Usage: npm run build
- */
-
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import * as ts from "typescript";
 
 const COMMON_JS_PLACEHOLDER = "%COMMON_JS%";
 const TEMPLATE_JS_PLACEHOLDER = "%TEMPLATE_JS%";
+const TEMPLATE_SIDES = ["front", "back"] as const;
+
+type TemplateSide = typeof TEMPLATE_SIDES[number];
+
+interface TemplatePaths {
+  base: string;
+  commonSource: string;
+  sideSource: string;
+  output: string;
+}
 
 /**
- * Transpiles TypeScript source text to JavaScript
+ * Transpile one global-script TypeScript file exactly as Anki will receive it.
  *
- * This is the single home of the build's compiler settings — tests import it
- * so they can never drift from what the build actually produces.
- *
- * @param source - TypeScript source text
- * @param fileName - Name used in error messages (typically the source path)
- * @param overrides - Extra compiler options merged on top of the build
- *                    settings. The build itself never passes any; the test
- *                    harness adds inlineSourceMap so coverage can attribute
- *                    eval'd code back to the .ts source.
- * @returns Transpiled JavaScript code as a string
- * @throws When the source has syntax errors (ts.transpile would otherwise
- *         silently emit mangled output and the build would report success)
- *
- * Configuration:
- * - module: None (no module system, functions attach to global scope)
- * - target: ES2022 (modern JavaScript with async/await, optional chaining, etc.)
+ * Tests import this function so coverage and unit harnesses use the same
+ * compiler settings as the real build.
  */
 export function transpileSource(
   source: string,
@@ -48,11 +27,16 @@ export function transpileSource(
   overrides: ts.CompilerOptions = {},
 ): string {
   const diagnostics: ts.Diagnostic[] = [];
-  const transpiled = ts.transpile(source, {
-    module: ts.ModuleKind.None,     // No module system - functions are global
-    target: ts.ScriptTarget.ES2022, // Modern JavaScript features
-    ...overrides,
-  }, fileName, diagnostics);
+  const transpiled = ts.transpile(
+    source,
+    {
+      module: ts.ModuleKind.None,
+      target: ts.ScriptTarget.ES2022,
+      ...overrides,
+    },
+    fileName,
+    diagnostics,
+  );
 
   if (diagnostics.length > 0) {
     const details = ts.formatDiagnostics(diagnostics, {
@@ -79,7 +63,7 @@ function replacePlaceholder(
 }
 
 /**
- * Injects transpiled JavaScript into an Anki base template.
+ * Inject transpiled JavaScript into an Anki base template.
  *
  * The replacer callbacks keep JavaScript replacement patterns such as "$$" and
  * "$&" literal instead of letting String.replace rewrite them.
@@ -96,66 +80,45 @@ export function injectJavaScript(
   );
 }
 
-/**
- * Builds a single Anki template (front or back)
- *
- * Process:
- * 1. Read the base HTML template file
- * 2. Transpile common.ts (shared functions like displayTags, prettifyTag)
- * 3. Transpile template-specific .ts file (front_template.ts or back_template.ts)
- * 4. Replace placeholders in HTML with transpiled JavaScript
- * 5. Write final HTML file to code_cards/ directory
- *
- * @param templateName - Either "front" or "back"
- */
-function buildTemplate(templateName: "front" | "back"): void {
-  // Read the base HTML template containing structure and placeholders
-  const baseTemplatePath = join(process.cwd(), "templates", `${templateName}_template_base.html`);
-  const baseTemplate = readFileSync(baseTemplatePath, "utf8");
-
-  // Transpile common TypeScript functions shared between templates
-  // These include: displayTags, prettifyTag, setLinkText
-  const commonPath = join(process.cwd(), "src", "common.ts");
-  const commonJs = transpileSource(readFileSync(commonPath, "utf8"), commonPath);
-
-  // Transpile template-specific TypeScript functions
-  // Front: placeCursor, setupEnterKeyEvent, storeInput, etc.
-  // Back: parseInput, revealAnswer, etc.
-  const templatePath = join(process.cwd(), "src", `${templateName}_template.ts`);
-  const templateJs = transpileSource(readFileSync(templatePath, "utf8"), templatePath);
-
-  // Replace placeholders in HTML template with transpiled JavaScript
-  // %COMMON_JS% -> common functions (displayTags, prettifyTag, setLinkText)
-  // %TEMPLATE_JS% -> template-specific functions and initialization
-  const finalTemplate = injectJavaScript(baseTemplate, commonJs, templateJs);
-
-  // Write the final HTML file to the code_cards directory
-  // This is where Anki expects to find the template files
-  const outputPath = join(process.cwd(), "code_cards", `${templateName}_template.html`);
-  writeFileSync(outputPath, finalTemplate);
-
-  console.log(`Generated ${outputPath}`);
+function projectPath(...segments: string[]): string {
+  return join(process.cwd(), ...segments);
 }
 
-/**
- * Main build function
- *
- * Builds both front and back templates in sequence.
- * Called when script is executed via npm run build.
- */
+function readTextFile(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+function transpileFile(path: string): string {
+  return transpileSource(readTextFile(path), path);
+}
+
+function pathsFor(side: TemplateSide): TemplatePaths {
+  return {
+    base: projectPath("templates", `${side}_template_base.html`),
+    commonSource: projectPath("src", "common.ts"),
+    sideSource: projectPath("src", `${side}_template.ts`),
+    output: projectPath("code_cards", `${side}_template.html`),
+  };
+}
+
+export function buildTemplate(side: TemplateSide): void {
+  const paths = pathsFor(side);
+  const finalTemplate = injectJavaScript(
+    readTextFile(paths.base),
+    transpileFile(paths.commonSource),
+    transpileFile(paths.sideSource),
+  );
+
+  writeFileSync(paths.output, finalTemplate);
+  console.log(`Generated ${paths.output}`);
+}
+
 function main(): void {
   console.log("Building Anki templates...");
-
-  // Build front template (what users see when studying)
-  buildTemplate("front");
-
-  // Build back template (what users see after revealing answer)
-  buildTemplate("back");
-
+  TEMPLATE_SIDES.forEach(buildTemplate);
   console.log("Templates built successfully!");
 }
 
-// Execute the build process
 if (require.main === module) {
   main();
 }

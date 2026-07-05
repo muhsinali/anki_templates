@@ -14,7 +14,6 @@ repos:
     rev: v2.4.2
     hooks:
       - id: codespell
-        name: American English spelling
         args: ['--builtin', 'clear,rare,en-GB_to_en-US', '--check-filenames']
 
   # Type-check and run tests before commit

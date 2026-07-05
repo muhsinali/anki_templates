@@ -17,6 +17,22 @@ import { transpileSource } from "../scripts/build-templates";
 const transpileCache = new Map<string, string>();
 
 /**
+ * Set the jsdom body and load common.ts plus any side-specific template code.
+ */
+export function loadTemplateDom(html: string = "", ...sourceFiles: string[]): void {
+  document.body.innerHTML = html;
+  loadScripts("common.ts", ...sourceFiles);
+}
+
+export function requiredElement<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Expected to find element matching ${selector}`);
+  }
+  return element;
+}
+
+/**
  * Load one or more src/ files into the window, in order. Pass dependencies
  * first (e.g. loadScripts("common.ts", "front_template.ts") mirrors the
  * %COMMON_JS% → %TEMPLATE_JS% order in the built HTML).

@@ -1,9 +1,7 @@
-<!-- Disable automated zoom onto cursor on mobile devices -->
+<!-- Keep mobile browsers from zooming into answer inputs. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-<!-------- Card Content, Hint, Tags and URL -------->
 <div class="content_aligned">
-    <!------- Content and Hint ------->
     {{Front}}
 
     <br>
@@ -16,7 +14,7 @@
     {{/Hint}}
 
     {{#Back}}
-        <!-- Only add horizontal rule if Back is not empty -->
+        <!-- Keep the separator out of cards that only have front-side answers. -->
         <hr>
     {{/Back}}
 
@@ -24,55 +22,56 @@
     <br>
 </div>
 
-
-
-<!------- Tags and URL ------->
 <div id="content_tag_left" class="tag"></div>
 <div id="url_container">{{URL}}</div>
 
-
-
-<!-------- JavaScript -------->
 <script>
     "use strict";
-    // Common functions
-// parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
-function displayTags(tagsString) {
-    const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
-    const prettifiedTags = tags
-        .map(prettifyTag)
-        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-        .join(", ");
-    const content_tag = document.getElementById("content_tag_left");
-    if (content_tag)
-        content_tag.textContent = prettifiedTags;
+    function displayTags(tagsString) {
+    const tagContainer = document.getElementById("content_tag_left");
+    if (!tagContainer)
+        return;
+    tagContainer.textContent = formatTags(tagsString);
 }
-// converts "Computing::Machine_Learning" to "Computing - Machine Learning"
+function formatTags(tagsString) {
+    const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
+    return tags
+        .map(prettifyTag)
+        .sort(compareTags)
+        .join(", ");
+}
+function compareTags(left, right) {
+    return left.localeCompare(right, undefined, { sensitivity: "base" });
+}
 function prettifyTag(tag) {
     return tag.split("::").join(" - ").replace(/_/g, " ");
 }
-// render the optional URL field as a compact source link
 function setLinkText() {
     const container = document.getElementById("url_container");
     if (!container)
         return;
-    const anchor = container.querySelector("a");
-    if (anchor) {
-        anchor.textContent = "Link";
+    const existingLink = container.querySelector("a");
+    if (existingLink) {
+        existingLink.textContent = "Link";
         return;
     }
     const rawUrl = container.textContent?.trim() ?? "";
-    if (!/^https?:\/\//i.test(rawUrl))
+    if (!isHttpUrl(rawUrl))
         return;
-    let parsedUrl;
+    replaceTextWithSourceLink(container, rawUrl);
+}
+function isHttpUrl(rawUrl) {
+    if (!/^https?:\/\//i.test(rawUrl))
+        return false;
     try {
-        parsedUrl = new URL(rawUrl);
+        const parsedUrl = new URL(rawUrl);
+        return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
     }
     catch {
-        return;
+        return false;
     }
-    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")
-        return;
+}
+function replaceTextWithSourceLink(container, rawUrl) {
     const link = document.createElement("a");
     link.href = rawUrl;
     link.textContent = "Link";
@@ -80,61 +79,51 @@ function setLinkText() {
     container.append(link);
 }
 
-    // Back template specific functions
-// normalizes smart quotes and strips all whitespace
-function parseInput(str) {
+    function parseInput(str) {
     return str.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, "");
 }
-// removes the feedback inserted by a previous grading pass
 function removeAnswerFeedback(input) {
     const nextElement = input.nextElementSibling;
     if (nextElement?.classList.contains("answer-feedback")) {
         nextElement.remove();
     }
 }
-// shows a non-color grading marker and, for wrong answers, the learner's attempt
 function showAnswerFeedback(input, isCorrect, rawAttempt) {
     removeAnswerFeedback(input);
     const feedback = document.createElement("span");
     feedback.className = `answer-feedback ${isCorrect ? "answer-correct" : "answer-wrong"}`;
-    feedback.textContent = isCorrect
-        ? "Correct"
-        : rawAttempt
-            ? `Incorrect (you typed: ${rawAttempt})`
-            : "Incorrect";
+    feedback.textContent = answerFeedbackText(isCorrect, rawAttempt);
     input.insertAdjacentElement("afterend", feedback);
 }
-// displays each input as correct or wrong based on whether the normalized answer matches expected
-function revealAnswer(data) {
-    document.querySelectorAll("input").forEach((input) => {
-        const inputName = input.name;
-        // Skip empty inputs
-        if (inputName) {
-            const trueAnswer = inputName;
-            const rawAttempt = data[inputName] ?? "";
-            const expected = parseInput(trueAnswer);
-            const actual = parseInput(rawAttempt);
-            const isCorrect = actual === expected;
-            input.classList.remove("answer-correct", "answer-wrong");
-            input.classList.add(isCorrect ? "answer-correct" : "answer-wrong");
-            input.style.backgroundColor = "";
-            input.style.fontWeight = "";
-            input.value = trueAnswer;
-            input.readOnly = true;
-            input.setAttribute("aria-label", isCorrect ? "Correct answer" : "Incorrect answer");
-            showAnswerFeedback(input, isCorrect, rawAttempt);
-        }
-    });
+function answerFeedbackText(isCorrect, rawAttempt) {
+    if (isCorrect)
+        return "Correct";
+    return rawAttempt ? `Incorrect (you typed: ${rawAttempt})` : "Incorrect";
 }
-// checks that stored front-side data belongs to the inputs on this back side
+function revealAnswer(data) {
+    namedInputs().forEach((input) => revealInputAnswer(input, data));
+}
+function revealInputAnswer(input, data) {
+    const expectedAnswer = input.name;
+    const rawAttempt = data[expectedAnswer] ?? "";
+    const isCorrect = parseInput(rawAttempt) === parseInput(expectedAnswer);
+    input.classList.remove("answer-correct", "answer-wrong");
+    input.classList.add(isCorrect ? "answer-correct" : "answer-wrong");
+    input.style.backgroundColor = "";
+    input.style.fontWeight = "";
+    input.value = expectedAnswer;
+    input.readOnly = true;
+    input.setAttribute("aria-label", isCorrect ? "Correct answer" : "Incorrect answer");
+    showAnswerFeedback(input, isCorrect, rawAttempt);
+}
+function namedInputs() {
+    return Array.from(document.querySelectorAll("input")).filter((input) => input.name !== "");
+}
 function inputSignatureMatches(data) {
-    const currentInputNames = Array.from(document.querySelectorAll("input"))
-        .map((input) => input.name)
-        .filter((inputName) => inputName !== "");
+    const currentInputNames = namedInputs().map((input) => input.name);
     return (currentInputNames.length === data.inputNames.length &&
         currentInputNames.every((inputName, index) => inputName === data.inputNames[index]));
 }
-// back template initialization
 function initializeBackTemplate() {
     if (window.data && inputSignatureMatches(window.data)) {
         revealAnswer(window.data.values);
@@ -142,7 +131,6 @@ function initializeBackTemplate() {
     displayTags("{{Tags}}");
     setLinkText();
 }
-// Initialize when loaded
 initializeBackTemplate();
 
 </script>
