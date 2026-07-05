@@ -22,12 +22,12 @@ sequenceDiagram
 
     %% Front card setup.
     Note over Front: initializeFrontTemplate() runs on load
-    Front->>Data: storeInput() creates name -> value map
+    Front->>Data: storeInput() creates values + inputNames
     Front->>Front: prepare inputs, hint, Enter key, tags, link
 
     %% Learner input is mirrored into window.data.
     Learner->>Front: types code into answer fields
-    Front->>Data: input listeners keep values in sync
+    Front->>Data: input listeners keep data.values in sync
 
     %% Anki flips to the Back card.
     Learner->>Front: presses Enter
@@ -38,17 +38,19 @@ sequenceDiagram
     Note over Back: Front field re-renders; inputs are recreated empty
     Note over Back: initializeBackTemplate() runs on load
     Back->>Data: read window.data
-    Back->>Back: revealAnswer(data) normalizes, compares, recolors
-    Back-->>Learner: green or red result, with expected answer shown
+    Back->>Back: verify inputNames signature
+    Back->>Back: revealAnswer(data.values) normalizes, compares, marks
+    Back-->>Learner: correct/incorrect feedback, expected answer, attempt if wrong
 ```
 
 ## Step by step
 
 1. **Front loads → `initializeFrontTemplate()`.** The very first thing it does is
-   `window.data = storeInput()`, building an object keyed by each input's `name`
-   attribute with its current value.
+   `window.data = storeInput()`, building `{ values, inputNames }`. `values`
+   is keyed by each input's `name` with its current value; `inputNames` stores
+   the ordered front-side input-name signature.
 2. **Live sync.** `storeInput()` also attaches an `input` event listener per
-   field, so every keystroke updates `window.data[name]`.
+   field, so every keystroke updates `window.data.values[name]`.
 3. **Submit.** Pressing **Enter** triggers `setupEnterKeyEvent()`'s handler,
    which calls `window.pycmd("ans")` — Anki's bridge to show the answer side.
    *(This does not work on iPhone — a known limitation.)*
@@ -56,19 +58,22 @@ sequenceDiagram
    Back **in the same JS context**, so `window.data` is still populated. The
    Back base template re-renders `{{Front}}`, though, so every `<input>` is a
    brand-new element with an empty value.
-5. **Back loads → `initializeBackTemplate()`.** If `window.data` exists, it calls
-   `revealAnswer(window.data)` to grade each recreated field against what the
-   learner typed, then overwrites its value with the correct answer. See
+5. **Back loads → `initializeBackTemplate()`.** If `window.data` exists and the
+   stored `inputNames` signature matches the recreated inputs, it calls
+   `revealAnswer(window.data.values)` to grade each field against what the
+   learner typed, then overwrites its value with the correct answer. A missing
+   or mismatched signature skips grading rather than using stale data. See
    [`05-answer-validation`](./05-answer-validation.md) for the comparison logic.
 
 ## Why `window.data` and not something else?
 
 - Anki cards have **no shared JavaScript module system** — front and back are two
   separate HTML blobs. A global on `window` is the only channel that spans them.
-- The build's **`module: none`** setting is what makes `data` a true global
-  rather than a module-scoped variable (see
+- The build's **`module: none`** setting keeps the helper functions global;
+  `window.data` itself is assigned explicitly on `window` (see
   [`02-build-pipeline`](./02-build-pipeline.md)).
 
 > ⚠️ **The `name` attribute is doing double duty.** It is both the dictionary key
-> in `window.data` *and* the expected correct answer. An input with no `name` is
-> silently skipped in both `storeInput()` and `revealAnswer()`.
+> in `window.data.values` *and* the expected correct answer. It also contributes
+> to the input-name signature used to reject stale data. An input with no `name`
+> is silently skipped in both `storeInput()` and `revealAnswer()`.

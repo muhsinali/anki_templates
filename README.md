@@ -11,7 +11,7 @@ Unlock faster, more engaging code practice on the go with **Code Cards for Anki*
 
 - **Instant Focus**: Automatically jump into the first input field—no extra clicks or taps needed.
 - **Error‑Proof Typing**: Quotes normalize, whitespace trims, and autocorrect/spellcheck disable for flawless code input, even on mobile.
-- **Visual Feedback**: Correct answers glow green, incorrect ones glow red—so you know exactly where you went right or wrong.
+- **Clear Feedback**: Correct and incorrect answers get distinct styling, text labels, and screen-reader labels; wrong answers also show what you typed.
 - **Zero Setup Headache**: Simply add the templates, set your fields, and start crafting custom code challenges in minutes.
 
 ## 🔑 Key Features
@@ -26,10 +26,10 @@ Unlock faster, more engaging code practice on the go with **Code Cards for Anki*
    Code typing never gets in your way—no more rogue suggestions or red underlines.
 
 4. **Dynamic Grading**\
-   After flipping, each input field highlights: green for correct, red for incorrect, without shifting your layout.
+   After flipping, each input field is marked correct or incorrect, locked read-only, and paired with visible feedback.
 
 5. **Seamless Tag & URL Integration**\
-   Organize by hierarchical tags (`content::Lang::Topic`, `src::Source`) and auto‑link your first `src` tag to an external URL.
+   Organize by hierarchical tags (`content::Lang::Topic`, `src::Source`) and add a compact source link from the URL field.
 
 ## 📝 Example
 Before inserting a code block:
@@ -96,15 +96,13 @@ When checking your answer:
 
 ## 🔗 Linking
 
-If you fill in the `URL` field, then the first `src` tag will be replaced with a hyperlink to that url
+Fill in the `URL` field with a raw `http://` or `https://` URL, or with a link from Anki's editor. The template displays it as a compact `Link` in the bottom-right corner.
 
-**Key point** - make sure to copy the URL as raw text (by doing `Ctrl+Shift+v`). If you don't, then it will show up as blue in the Anki editor, and it won't work. One way to check this is to press `Ctrl+Shift+x` to open the HTML editor, and check that the URL only appears as raw text there
-
-If you don't fill in this field, then there will be no hyperlink, but the tags will still work fine
+If the field is empty or does not look like an HTTP(S) URL, no link is shown and the tags still work normally.
 
 ## ⚙️ Development
 
-Requires Node.js 24 (see `.nvmrc`).
+Requires Node.js 24 or newer. `.nvmrc` pins 24 as the minimum version CI checks.
 
 ```bash
 npm install     # Install dependencies

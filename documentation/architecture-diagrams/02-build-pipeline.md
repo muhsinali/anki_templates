@@ -74,8 +74,8 @@ flowchart LR
 
 - **`module: none`, `target: ES2022`** — `transpileSource()` passes these to
   `ts.transpile()`. `module: none` means there is **no module wrapper**: every
-  top-level `function` becomes a plain global. That is what lets the front card
-  write `window.data` and the back card read it (see
+  top-level `function` becomes a plain global. `window.data` itself is assigned
+  explicitly by the front card and read by the back card (see
   [`04-runtime-data-flow`](./04-runtime-data-flow.md)). Anki's webview does not
   support ES modules.
 - **`transpileSource()` is exported and shared with the tests** — it is the

@@ -1,3 +1,6 @@
+<!-- Disable automated zoom onto cursor on mobile devices -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
 <!-------- Card Content, Hint, Tags and URL -------->
 <div class="content_aligned">
     <!------- Content and Hint ------->
@@ -36,7 +39,10 @@
 // parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
 function displayTags(tagsString) {
     const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
-    const prettifiedTags = tags.map(prettifyTag).sort().join(", ");
+    const prettifiedTags = tags
+        .map(prettifyTag)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+        .join(", ");
     const content_tag = document.getElementById("content_tag_left");
     if (content_tag)
         content_tag.textContent = prettifiedTags;
@@ -45,11 +51,33 @@ function displayTags(tagsString) {
 function prettifyTag(tag) {
     return tag.split("::").join(" - ").replace(/_/g, " ");
 }
-// set link text
+// render the optional URL field as a compact source link
 function setLinkText() {
-    const anchor = document.querySelector("a");
-    if (anchor)
+    const container = document.getElementById("url_container");
+    if (!container)
+        return;
+    const anchor = container.querySelector("a");
+    if (anchor) {
         anchor.textContent = "Link";
+        return;
+    }
+    const rawUrl = container.textContent?.trim() ?? "";
+    if (!/^https?:\/\//i.test(rawUrl))
+        return;
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(rawUrl);
+    }
+    catch {
+        return;
+    }
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")
+        return;
+    const link = document.createElement("a");
+    link.href = rawUrl;
+    link.textContent = "Link";
+    container.textContent = "";
+    container.append(link);
 }
 
     // Back template specific functions
@@ -57,26 +85,59 @@ function setLinkText() {
 function parseInput(str) {
     return str.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, "");
 }
-// displays each input as correct (green) or wrong (red) based on whether the normalized answer matches expected
+// removes the feedback inserted by a previous grading pass
+function removeAnswerFeedback(input) {
+    const nextElement = input.nextElementSibling;
+    if (nextElement?.classList.contains("answer-feedback")) {
+        nextElement.remove();
+    }
+}
+// shows a non-color grading marker and, for wrong answers, the learner's attempt
+function showAnswerFeedback(input, isCorrect, rawAttempt) {
+    removeAnswerFeedback(input);
+    const feedback = document.createElement("span");
+    feedback.className = `answer-feedback ${isCorrect ? "answer-correct" : "answer-wrong"}`;
+    feedback.textContent = isCorrect
+        ? "Correct"
+        : rawAttempt
+            ? `Incorrect (you typed: ${rawAttempt})`
+            : "Incorrect";
+    input.insertAdjacentElement("afterend", feedback);
+}
+// displays each input as correct or wrong based on whether the normalized answer matches expected
 function revealAnswer(data) {
     document.querySelectorAll("input").forEach((input) => {
         const inputName = input.name;
         // Skip empty inputs
         if (inputName) {
             const trueAnswer = inputName;
+            const rawAttempt = data[inputName] ?? "";
             const expected = parseInput(trueAnswer);
-            const actual = parseInput(data[inputName] ?? "");
-            input.style.backgroundColor =
-                actual === expected ? "rgb(124,232,0)" : "rgb(240,128,128)";
+            const actual = parseInput(rawAttempt);
+            const isCorrect = actual === expected;
+            input.classList.remove("answer-correct", "answer-wrong");
+            input.classList.add(isCorrect ? "answer-correct" : "answer-wrong");
+            input.style.backgroundColor = "";
+            input.style.fontWeight = "";
             input.value = trueAnswer;
-            input.style.fontWeight = "bold";
+            input.readOnly = true;
+            input.setAttribute("aria-label", isCorrect ? "Correct answer" : "Incorrect answer");
+            showAnswerFeedback(input, isCorrect, rawAttempt);
         }
     });
 }
+// checks that stored front-side data belongs to the inputs on this back side
+function inputSignatureMatches(data) {
+    const currentInputNames = Array.from(document.querySelectorAll("input"))
+        .map((input) => input.name)
+        .filter((inputName) => inputName !== "");
+    return (currentInputNames.length === data.inputNames.length &&
+        currentInputNames.every((inputName, index) => inputName === data.inputNames[index]));
+}
 // back template initialization
 function initializeBackTemplate() {
-    if (window.data) {
-        revealAnswer(window.data);
+    if (window.data && inputSignatureMatches(window.data)) {
+        revealAnswer(window.data.values);
     }
     displayTags("{{Tags}}");
     setLinkText();

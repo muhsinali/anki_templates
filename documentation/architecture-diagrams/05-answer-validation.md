@@ -9,14 +9,15 @@ cosmetic differences never mark a correct answer wrong. Implemented in
 flowchart TB
     start(["revealAnswer(data)<br/>for each input"])
     has_name{"Input has<br/>a name?"}
-    skip_input["Skip input<br/>no color, no change"]
+    skip_input["Skip input<br/>no class, no change"]
     expected_value["expected = parseInput(name)<br/>name is the answer"]
     learner_value["raw = learner value<br/>missing means empty string"]
     normalized_value["actual = parseInput(raw)<br/>quotes fixed, whitespace stripped"]
     is_correct{"actual === expected?"}
-    mark_correct["Mark green<br/>rgb(124,232,0)"]
-    mark_wrong["Mark red<br/>rgb(240,128,128)"]
-    show_answer["Show correct answer<br/>value = name, bold"]
+    mark_correct["Add answer-correct<br/>class + aria-label"]
+    mark_wrong["Add answer-wrong<br/>class + aria-label"]
+    show_answer["Show correct answer<br/>value = name, read-only"]
+    show_feedback["Show text feedback<br/>and wrong attempt"]
 
     %% Skip inert inputs.
     start --> has_name
@@ -33,6 +34,7 @@ flowchart TB
     is_correct -->|no| mark_wrong
     mark_correct --> show_answer
     mark_wrong --> show_answer
+    show_answer --> show_feedback
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
     classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
@@ -41,7 +43,7 @@ flowchart TB
     classDef skip fill:#eceff1,stroke:#607d8b,color:#000;
 
     class start entry;
-    class expected_value,learner_value,normalized_value,show_answer process;
+    class expected_value,learner_value,normalized_value,show_answer,show_feedback process;
     class mark_correct good;
     class mark_wrong bad;
     class skip_input skip;
@@ -69,9 +71,13 @@ negative:
 - **Whitespace is never significant.** `console.log` and `console . log` grade
   identically. This is intentional — see the "gotchas" in `CLAUDE.md`.
 - **The answer is always revealed.** Regardless of right/wrong, `input.value` is
-  overwritten with the correct `name` and bolded, so the learner sees the
-  expected answer in-place.
+  overwritten with the correct `name`, marked read-only, and styled by class so
+  the learner sees the expected answer in-place.
+- **Feedback is not color-only.** Correct and wrong answers get visible text
+  feedback plus an `aria-label`. Wrong answers also show what the learner typed.
 - **Unnamed inputs are inert.** No `name` → skipped here and never stored on the
   Front (see [`04-runtime-data-flow`](./04-runtime-data-flow.md)).
 - **Missing keys are safe.** `data[name] ?? ""` means an input the learner never
   touched grades as an empty string (wrong) rather than throwing.
+- **Feedback is idempotent.** A repeated grading pass replaces existing feedback
+  instead of duplicating it.

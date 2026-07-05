@@ -76,10 +76,9 @@ Two non-obvious mechanics, documented so nobody "fixes" them:
 
 ## 7b · The CI gate
 
-Runs on every push and pull request, on Node 24 — the current LTS and the
-project's single supported line (`engines: "24.x"`, `.nvmrc`). The CI job is
-designed to be the required PR status check, so any failed step keeps the PR
-red.
+Runs on every push and pull request on Node 24, the minimum supported runtime
+(`engines: ">=24"`, `.nvmrc` pins 24 locally). The CI job is designed to be the
+required PR status check, so any failed step keeps the PR red.
 
 ```mermaid
 flowchart TB

@@ -32,7 +32,10 @@
 // parse a space delimited tag string, and displays tags in sorted order in #content_tag_left
 function displayTags(tagsString) {
     const tags = tagsString.split(" ").filter((tag) => tag.trim() !== "");
-    const prettifiedTags = tags.map(prettifyTag).sort().join(", ");
+    const prettifiedTags = tags
+        .map(prettifyTag)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+        .join(", ");
     const content_tag = document.getElementById("content_tag_left");
     if (content_tag)
         content_tag.textContent = prettifiedTags;
@@ -41,11 +44,33 @@ function displayTags(tagsString) {
 function prettifyTag(tag) {
     return tag.split("::").join(" - ").replace(/_/g, " ");
 }
-// set link text
+// render the optional URL field as a compact source link
 function setLinkText() {
-    const anchor = document.querySelector("a");
-    if (anchor)
+    const container = document.getElementById("url_container");
+    if (!container)
+        return;
+    const anchor = container.querySelector("a");
+    if (anchor) {
         anchor.textContent = "Link";
+        return;
+    }
+    const rawUrl = container.textContent?.trim() ?? "";
+    if (!/^https?:\/\//i.test(rawUrl))
+        return;
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(rawUrl);
+    }
+    catch {
+        return;
+    }
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")
+        return;
+    const link = document.createElement("a");
+    link.href = rawUrl;
+    link.textContent = "Link";
+    container.textContent = "";
+    container.append(link);
 }
 
     // Front template specific functions
@@ -76,8 +101,10 @@ function setupDOMContentLoaded(callback) {
 }
 // handle Enter/Return key press to show answer (does not yet work on iPhone)
 function setupEnterKeyEvent() {
+    if (window.enterKeyHandlerBound)
+        return;
     const handleEnterKey = (event) => {
-        if (event.key === "Enter") {
+        if (event.key === "Enter" && !event.isComposing) {
             event.preventDefault();
             if (typeof window.pycmd !== "undefined") {
                 window.pycmd("ans");
@@ -85,6 +112,7 @@ function setupEnterKeyEvent() {
         }
     };
     document.addEventListener("keydown", handleEnterKey);
+    window.enterKeyHandlerBound = true;
 }
 // attach touch and mouse event listeners to reveal the hint element when triggered
 function setupHint() {
@@ -94,16 +122,17 @@ function setupHint() {
         hint.addEventListener("mousedown", () => (hint.className = "shown"));
     }
 }
-// store all input values into an object
+// store all input values and their card signature into an object
 function storeInput() {
-    const data = {};
+    const data = { values: {}, inputNames: [] };
     document.querySelectorAll("input").forEach((input) => {
         const inputName = input.name;
         // Skip empty inputs
         if (inputName) {
-            data[inputName] = input.value;
+            data.inputNames.push(inputName);
+            data.values[inputName] = input.value;
             input.addEventListener("input", () => {
-                data[inputName] = input.value;
+                data.values[inputName] = input.value;
             });
         }
     });

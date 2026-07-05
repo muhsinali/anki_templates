@@ -119,19 +119,20 @@ flowchart TB
 ## How the pieces fit
 
 - **Shared logic** (`src/common.ts`): `displayTags`, `prettifyTag`, and
-  `setLinkText`, used by both card sides.
-- **Front logic** (`src/front_template.ts`): captures input into `window.data`,
-  focuses the field, and wires Enter/hint behavior.
-- **Back logic** (`src/back_template.ts`): reads `window.data`, grades answers,
-  and recolors inputs.
+  `setLinkText`, used by both card sides for tags and URL chrome.
+- **Front logic** (`src/front_template.ts`): captures input values and the
+  ordered input-name signature into `window.data`, focuses the field, and wires
+  Enter/hint behavior.
+- **Back logic** (`src/back_template.ts`): validates that `window.data` matches
+  the recreated inputs, grades answers, and applies accessible answer feedback.
 - **Base HTML** (`templates/*_template_base.html`): layout, Anki fields, and
   `%COMMON_JS%` / `%TEMPLATE_JS%` slots.
 - **Build** (`scripts/build-templates.ts`): transpiles and injects JavaScript,
   then writes `code_cards/*.html`.
 - **Output** (`code_cards/*.html`, `styling.css`): pasted into Anki; HTML is
   generated, CSS is manual.
-- **Types** (`src/global.d.ts`): the `Window` contract (`data`, `pycmd`) at
-  compile time only.
+- **Types** (`src/global.d.ts`): the `CardInputData` and `Window` contract
+  (`data`, `pycmd`, `enterKeyHandlerBound`) at compile time only.
 - **Test harness** (`tests/helpers.ts`): transpiles through the build's
   `transpileSource()`, caches the result, and evals into jsdom.
 - **Tests** (`tests/*.test.ts`): unit, build-script, property-based, and
@@ -148,5 +149,5 @@ flowchart TB
   compiler settings) and `eval`s them into a jsdom `window`. See
   [`07-test-and-ci`](./07-test-and-ci.md) for the full test architecture and
   the CI gate.
-- **`dist/` is unused by the build** — it only appears if you run
-  `npx tsc` manually. The build never reads it.
+- **Type-checking is no-emit.** `tsconfig.json` has `noEmit`; the build writes
+  only the committed `code_cards/*.html` files.

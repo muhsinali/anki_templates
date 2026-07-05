@@ -18,7 +18,7 @@ flowchart TB
     run_callback["Run callback<br/>immediately"]
     prepare_inputs["Callback<br/>set attributes + place cursor"]
     setup_hint["3. setupHint()<br/>reveal hint on touch/mouse"]
-    setup_enter["4. setupEnterKeyEvent()<br/>Enter calls pycmd('ans')"]
+    setup_enter["4. setupEnterKeyEvent()<br/>bind once, Enter calls pycmd('ans')"]
     display_tags["5. displayTags(Tags)"]
     set_link["6. setLinkText()"]
 
@@ -50,6 +50,8 @@ flowchart TB
 ```
 
 - **`storeInput()` runs first** so `window.data` exists before anything else.
+  It stores both the live `values` map and the ordered `inputNames` signature
+  used by the Back side to reject stale data.
   It can safely query the inputs synchronously because the `<script>` block
   sits at the *end* of the template body — the `{{Front}}` content above it is
   already parsed by the time the script executes.
@@ -58,6 +60,8 @@ flowchart TB
   parsed they run synchronously, otherwise they wait for `DOMContentLoaded`.
 - `setInputAttributes()` disables autocapitalize / autocomplete / autocorrect /
   spellcheck so code typing is friction-free on mobile.
+- `setupEnterKeyEvent()` is guarded so the document-level listener is attached
+  once per webview, and composing Enter key events are ignored for IME users.
 
 ## Back card — `initializeBackTemplate()`
 
@@ -68,15 +72,18 @@ job is to grade, then render the shared chrome (tags + link).
 flowchart TB
     back_load(["Back script loads"])
     has_data{"window.data set?"}
-    grade_answers["revealAnswer(window.data)<br/>grade + recolor"]
-    skip_grading["Skip grading<br/>previewed without Front"]
+    signature_match{"inputNames<br/>match?"}
+    grade_answers["revealAnswer(data.values)<br/>grade + feedback"]
+    skip_grading["Skip grading<br/>missing or stale data"]
     display_tags["displayTags(Tags)"]
     set_link["setLinkText()"]
 
     %% Grade only when the Front card saved learner input.
     back_load --> has_data
-    has_data -->|yes| grade_answers
+    has_data -->|yes| signature_match
     has_data -->|no| skip_grading
+    signature_match -->|yes| grade_answers
+    signature_match -->|no| skip_grading
 
     %% Shared chrome renders in both paths.
     grade_answers --> display_tags
@@ -89,12 +96,12 @@ flowchart TB
 
     class back_load entry;
     class grade_answers,display_tags,set_link process;
-    class skip_grading branch;
+    class skip_grading,signature_match branch;
 ```
 
-- The **`window.data` guard** means the Back is defensive: if it somehow renders
-  without a Front pass having stored data, it simply skips grading instead of
-  erroring.
+- The **`window.data` and signature guards** mean the Back is defensive: if it
+  renders without a Front pass, or with stale data from differently shaped
+  inputs, it skips grading instead of erroring or misgrading.
 - `displayTags()` and `setLinkText()` run on **both** sides (they come from
   `common.ts`), which is why the tag row and link render identically front and
   back.
@@ -102,10 +109,11 @@ flowchart TB
 ## Shared chrome (both sides) — from `common.ts`
 
 - `displayTags("{{Tags}}")` splits the space-delimited tag string, prettifies
-  each tag (`A::B_C` → `A - B C`), sorts them, and writes the result into
-  `#content_tag_left`.
-- `setLinkText()` sets the first `<a>`'s text to `"Link"`. The URL field, once
-  populated, becomes the source link.
+  each tag (`A::B_C` → `A - B C`), locale-sorts them case-insensitively, and
+  writes the result into `#content_tag_left`.
+- `setLinkText()` renders the optional `#url_container` value as a compact
+  `"Link"`: existing anchors are renamed, raw HTTP(S) text becomes an anchor,
+  and content links outside the URL container are left alone.
 
 ## Related
 
