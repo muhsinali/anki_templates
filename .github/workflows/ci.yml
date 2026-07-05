@@ -28,8 +28,24 @@ jobs:
           node-version: 24
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Install pre-commit
+        run: python -m pip install "pre-commit>=4,<5"
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
 
       - name: Type-check source (the build never type-checks)
         run: npx tsc -p tsconfig.json --noEmit

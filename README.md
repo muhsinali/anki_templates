@@ -104,7 +104,7 @@ If you don't fill in this field, then there will be no hyperlink, but the tags w
 
 ## ⚙️ Development
 
-Requires Node.js 24+.
+Requires Node.js 24 (see `.nvmrc`).
 
 ```bash
 npm install     # Install dependencies

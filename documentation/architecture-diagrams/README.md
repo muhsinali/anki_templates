@@ -10,15 +10,21 @@ in most Markdown viewers — no build step required.
 
 ## The diagrams
 
-| # | Diagram | What it answers | Type |
-|---|---------|-----------------|------|
-| 1 | [System Context](./01-system-context.md) | How a change flows from repo → build → Anki → learner | Flowchart |
-| 2 | [Build Pipeline](./02-build-pipeline.md) | How `npm run build` transpiles TS and injects it into HTML | Flowchart |
-| 3 | [Module & File Structure](./03-module-structure.md) | How `src/`, `templates/`, `scripts/`, `tests/`, and output relate | Flowchart |
-| 4 | [Runtime Data Flow (Front → Back)](./04-runtime-data-flow.md) | How the two card sides share state via `window.data` | Sequence |
-| 5 | [Answer Validation](./05-answer-validation.md) | How `revealAnswer()` grades and recolors each input | Flowchart |
-| 6 | [Card Initialization Lifecycles](./06-card-lifecycles.md) | What runs on load for the Front and Back cards | Flowchart |
-| 7 | [Test Architecture & CI Gate](./07-test-and-ci.md) | How tests exercise the shipped code, how coverage sees eval'd code, what CI blocks | Flowchart |
+1. [System Context](./01-system-context.md) - repo to build to Anki to learner.
+   Type: flowchart.
+2. [Build Pipeline](./02-build-pipeline.md) - how `npm run build` transpiles
+   TypeScript and injects it into HTML. Type: flowchart.
+3. [Module & File Structure](./03-module-structure.md) - how `src/`,
+   `templates/`, `scripts/`, `tests/`, and output relate. Type: flowchart.
+4. [Runtime Data Flow (Front → Back)](./04-runtime-data-flow.md) - how the card
+   sides share state via `window.data`. Type: sequence.
+5. [Answer Validation](./05-answer-validation.md) - how `revealAnswer()` grades
+   and recolors each input. Type: flowchart.
+6. [Card Initialization Lifecycles](./06-card-lifecycles.md) - what runs on load
+   for the Front and Back cards. Type: flowchart.
+7. [Test Architecture & CI Gate](./07-test-and-ci.md) - how tests exercise the
+   shipped code, how coverage sees eval'd code, and what CI blocks. Type:
+   flowchart.
 
 ## Where to start
 
@@ -38,20 +44,33 @@ single global.
 
 ```mermaid
 flowchart LR
-    TS["TypeScript<br/>src/*.ts"] --> BUILD["build-templates.ts<br/>transpile + inject"]
-    HTML["Base HTML<br/>templates/*_base.html"] --> BUILD
-    BUILD --> CARDS["code_cards/<br/>front + back .html"]
-    CARDS --> ANKI["Anki webview"]
-    ANKI -->|"Front writes / Back reads"| WD["window.data"]
+    %% Build-time inputs.
+    typescript_source["TypeScript<br/>src/*.ts"]
+    base_html["Base HTML<br/>templates/*_base.html"]
 
-    classDef in fill:#e1f5ff,stroke:#0288d1,color:#000;
-    classDef mid fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef out fill:#d4edda,stroke:#2e7d32,color:#000;
-    classDef rt fill:#ede7f6,stroke:#5e35b1,color:#000;
-    class TS,HTML in;
-    class BUILD mid;
-    class CARDS out;
-    class ANKI,WD rt;
+    %% Generated card artifacts.
+    build_step["build-templates.ts<br/>transpile + inject"]
+    generated_cards["code_cards/<br/>front + back HTML"]
+
+    %% Runtime handoff inside Anki.
+    anki_webview["Anki webview"]
+    shared_state["window.data"]
+
+    typescript_source --> build_step
+    base_html --> build_step
+    build_step --> generated_cards
+    generated_cards --> anki_webview
+    anki_webview -->|"Front writes / Back reads"| shared_state
+
+    classDef source fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef build fill:#fff3cd,stroke:#f9a825,color:#000;
+    classDef output fill:#d4edda,stroke:#2e7d32,color:#000;
+    classDef runtime fill:#ede7f6,stroke:#5e35b1,color:#000;
+
+    class typescript_source,base_html source;
+    class build_step build;
+    class generated_cards output;
+    class anki_webview,shared_state runtime;
 ```
 
 ## Color legend

@@ -9,8 +9,8 @@ This document explains how to build, test, and extend the Anki template system.
 
 ## Prerequisites
 
-- Node.js (v24+, the current LTS — CI runs on Node 24; `.nvmrc` pins 24 and
-  `package.json`'s `engines` field enforces `>=24`)
+- Node.js (v24, the current LTS — pinned specifically: CI runs on Node 24,
+  `.nvmrc` pins 24, and `package.json`'s `engines` field requires `24.x`)
 - npm
 - [pre-commit](https://pre-commit.com/) (optional — only needed for the git hooks)
 
@@ -393,6 +393,8 @@ Every push and pull request runs the CI workflow
 
 ```bash
 npm ci                             # Clean install from package-lock.json
+python -m pip install "pre-commit>=4,<5"
+pre-commit run --all-files --show-diff-on-failure --color=always
 npx tsc -p tsconfig.json --noEmit  # Type-check src/ (the build never type-checks)
 npx tsc -p tsconfig.jest.json --noEmit  # Type-check tests/ and scripts/
 npm test -- --coverage             # Run the Jest suite + coverage thresholds
@@ -405,5 +407,6 @@ committed to the repo so users can copy them into Anki without building, and
 CI fails any change that edits `src/` or `templates/` without committing the
 regenerated output. It also implicitly asserts the build is deterministic.
 
-A PR cannot merge green if it breaks the types, the tests, the build, or
-forgets to regenerate `code_cards/`.
+A PR cannot merge green if it breaks pre-commit, the types, the tests, the
+build, or forgets to regenerate `code_cards/`. To make GitHub block the merge,
+protect `main` and require the `Node 24` status check from the `CI` workflow.

@@ -151,7 +151,7 @@ Every step below is worked test-first:
    infrastructure.
 2. **Green** — make the smallest change that passes.
 3. **Refactor** — clean up on green only. For anything touching the build, the
-   committed `code_cards/` output is the built-in characterisation test: after a
+   committed `code_cards/` output is the built-in characterization test: after a
    pure refactor, `npm run build && git diff --exit-code code_cards/` must stay clean.
 
 One caveat for regression-net tests (like step 3's e2e test): they are written against
@@ -451,7 +451,7 @@ recipe, not a research project.
 2. In the step-4 helper, transpile with `inlineSourceMap: true` **and pass the source
    file's absolute path as `ts.transpile`'s `fileName` argument** (so the source map
    points at the real file), then append `\n//# sourceURL=file://<abs path>` to the
-   eval'd string. The `file://` prefix matters — it's how Jest's V8 reporter recognises
+   eval'd string. The `file://` prefix matters — it's how Jest's V8 reporter recognizes
    the script as a project file.
 3. Add `coverage/` to `.gitignore` (verified missing — a stray `--coverage` run
    currently dirties the working tree).
@@ -485,7 +485,7 @@ delivers at a fraction of the cost. Revisit only if the eval pattern becomes a
 bottleneck for other reasons.
 
 **Fallback dignity clause.** If the V8 recipe ever breaks under a future Jest (it
-relies on sourceURL attribution behaviour), the fallback is the same as before: make
+relies on sourceURL attribution behavior), the fallback is the same as before: make
 `make coverage` stop lying — remove it or print a warning. A misleading 0% is worse
 than no number.
 
@@ -631,7 +631,7 @@ exploratory, in contrast to steps 1–7.
 - **A real-browser smoke test (Playwright).** jsdom approximates focus, keyboard
   events, and rendering; Anki's webview is real Chromium (QtWebEngine). One Playwright
   test loading the built front template, typing, and flipping would catch the class of
-  bug jsdom structurally cannot (focus/IME/viewport behaviour). Worth it only if a
+  bug jsdom structurally cannot (focus/IME/viewport behavior). Worth it only if a
   jsdom-blind bug actually bites; AnkiDroid/AnkiMobile webviews differ again and stay
   out of scope.
 - **Golden-file snapshot of the built HTML.** Largely redundant with step 1's drift

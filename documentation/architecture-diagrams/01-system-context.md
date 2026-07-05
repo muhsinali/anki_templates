@@ -13,50 +13,55 @@ There are **three worlds**:
 
 ```mermaid
 flowchart TB
-    LEARNER(["👤 Learner<br/>types code answers"])
+    learner(["Learner<br/>types code answers"])
 
-    subgraph authoring["✍️ Authoring — this repo"]
+    subgraph authoring["Authoring - this repo"]
         direction TB
-        SRC["TypeScript logic<br/>src/common.ts · src/front_template.ts · src/back_template.ts"]
-        TPL["Base HTML templates<br/>templates/*_template_base.html"]
-        BUILD["Build script<br/>scripts/build-templates.ts"]
-        SRC --> BUILD
-        TPL --> BUILD
+        typescript_sources["TypeScript logic<br/>common + front + back"]
+        base_templates["Base HTML templates<br/>front + back shells"]
+        build_script["Build script<br/>scripts/build-templates.ts"]
+
+        typescript_sources --> build_script
+        base_templates --> build_script
     end
 
-    subgraph output["📦 Generated artifacts — code_cards/"]
+    subgraph output["Generated artifacts - code_cards/"]
         direction TB
-        FHTML["front_template.html<br/>(generated)"]
-        BHTML["back_template.html<br/>(generated)"]
-        CSS["styling.css<br/>(hand-maintained, NOT generated)"]
+        front_html["front_template.html<br/>generated"]
+        back_html["back_template.html<br/>generated"]
+        styling_css["styling.css<br/>hand-maintained"]
     end
 
-    subgraph anki["🎴 Anki — runtime"]
+    subgraph anki["Anki runtime"]
         direction TB
-        NOTETYPE["'Code Card' note type<br/>Fields: Front · Back · Hint · URL · Tags"]
-        WEBVIEW["Anki webview<br/>renders Front, then Back"]
-        NOTETYPE --> WEBVIEW
+        note_type["Code Card note type<br/>Front, Back, Hint, URL, Tags"]
+        webview["Anki webview<br/>renders Front, then Back"]
+
+        note_type --> webview
     end
 
-    BUILD -->|writes| FHTML
-    BUILD -->|writes| BHTML
+    %% Build output.
+    build_script -->|writes| front_html
+    build_script -->|writes| back_html
 
-    FHTML -.paste into card template.-> NOTETYPE
-    BHTML -.paste into card template.-> NOTETYPE
-    CSS  -.paste into styling.-> NOTETYPE
+    %% Manual copy into Anki.
+    front_html -.->|paste into card template| note_type
+    back_html -.->|paste into card template| note_type
+    styling_css -.->|paste into styling| note_type
 
-    WEBVIEW --> LEARNER
-    LEARNER -->|studies / answers| WEBVIEW
+    %% Runtime study loop.
+    webview --> learner
+    learner -->|studies / answers| webview
 
     classDef authoring fill:#e1f5ff,stroke:#0288d1,color:#000;
     classDef output fill:#d4edda,stroke:#2e7d32,color:#000;
     classDef anki fill:#ede7f6,stroke:#5e35b1,color:#000;
     classDef person fill:#fff3cd,stroke:#f9a825,color:#000;
 
-    class SRC,TPL,BUILD authoring;
-    class FHTML,BHTML,CSS output;
-    class NOTETYPE,WEBVIEW anki;
-    class LEARNER person;
+    class typescript_sources,base_templates,build_script authoring;
+    class front_html,back_html,styling_css output;
+    class note_type,webview anki;
+    class learner person;
 ```
 
 ## Key facts

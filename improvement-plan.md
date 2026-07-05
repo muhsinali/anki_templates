@@ -1,6 +1,6 @@
 # Upgrade Plan for Code Cards
 
-This is a prioritised to-do list for improving the project, based on a full read-through
+This is a prioritized to-do list for improving the project, based on a full read-through
 of the source, templates, tests, build script, and styling. Each item gets a score from
 1 to 10 for how much impact fixing it would have. Bugs come first — there's no point
 polishing features while known defects can mark a correct answer wrong.
@@ -29,7 +29,7 @@ Every item ends with two things on purpose:
 | 12 | Give `window.data` and `pycmd` real types | Testing | 6/10 |
 | 13 | Support Anki's night mode | Improvement | 6/10 |
 | 14 | Show the learner what they typed, not just the answer | Improvement | 5/10 |
-| 15 | Don't rely on colour alone for right/wrong | Improvement | 5/10 |
+| 15 | Don't rely on color alone for right/wrong | Improvement | 5/10 |
 | 16 | Sort tags alphabetically, not by ASCII | Improvement | 4/10 |
 | 17 | Tidy up the dev dependencies | Housekeeping | 3/10 |
 | 18 | Sort out the `_editor_button_styles.css` import | Housekeeping | 3/10 |
@@ -41,13 +41,13 @@ Every item ends with two things on purpose:
 
 ### 1. Smart quotes in the expected answer always grade as wrong — 9/10
 
-**What's happening.** `revealAnswer()` in `src/back_template.ts` normalises the *learner's*
+**What's happening.** `revealAnswer()` in `src/back_template.ts` normalizes the *learner's*
 input with `parseInput()` (curly quotes → straight quotes, whitespace stripped), but the
 *expected* answer — the input's `name` attribute — only gets its whitespace stripped:
 
 ```ts
-const expected = trueAnswer.replace(/\s+/g, "");   // no quote normalisation!
-const actual = parseInput(data[inputName] ?? "");  // fully normalised
+const expected = trueAnswer.replace(/\s+/g, "");   // no quote normalization!
+const actual = parseInput(data[inputName] ?? "");  // fully normalized
 ```
 
 **Why it matters.** If a card author's `name` attribute ever contains curly quotes —
@@ -62,7 +62,7 @@ quotes and gets marked wrong every single time, with no clue why.
 typed answer uses straight ones (should be green), plus the reverse. Also extend the
 `parseInput` tests with backticks and non-breaking spaces while you're in there.
 
-**Docs to update.** The normalisation table in
+**Docs to update.** The normalization table in
 `documentation/architecture-diagrams/05-answer-validation.md` currently *documents* this
 asymmetry ("the expected value only has whitespace stripped") — rewrite that section.
 Also the "Answer Validation System" bullet in `CLAUDE.md`.
@@ -139,7 +139,7 @@ listener the first time. While there, consider ignoring `event.isComposing` so I
 
 ### 5. Answer inputs are still editable on the back of the card — 6/10
 
-**What's happening.** `revealAnswer()` recolours each input and overwrites its value
+**What's happening.** `revealAnswer()` recolors each input and overwrites its value
 with the correct answer, but the inputs stay fully editable.
 
 **Why it matters.** On the answer side you can tap an input by accident and start
@@ -160,7 +160,7 @@ on named inputs (and *not* on skipped, unnamed ones).
 name="viewport">` tag that stops mobile browsers zooming onto the focused input. The
 back template doesn't have it.
 
-**Why it matters.** Flipping the card on a phone can change the zoom behaviour
+**Why it matters.** Flipping the card on a phone can change the zoom behavior
 mid-review. Small, but it's a one-line inconsistency between two files that should
 mirror each other.
 
@@ -191,8 +191,8 @@ from a hidden element rendering `{{Front}}`'s hash — or simply documenting the
 and accepting it. Decide when you get there; don't fix it blind.
 
 **Tests to add.** Simulate the edge: populate `window.data` with keys that don't match
-the back's inputs and assert every input grades red (current behaviour), then encode
-whatever behaviour you choose.
+the back's inputs and assert every input grades red (current behavior), then encode
+whatever behavior you choose.
 
 **Docs to update.** `documentation/architecture-diagrams/04-runtime-data-flow.md`
 already explains the flip mechanics — add the edge case there and to `CLAUDE.md`
@@ -233,7 +233,7 @@ deletes a footgun.
 
 **The fix.** In `common.ts`, read `#url_container`'s text content; if it looks like a
 URL, replace the container's content with a real `<a href="...">Link</a>`. If it already
-contains an anchor, just rename it (current behaviour). Then both paste styles work and
+contains an anchor, just rename it (current behavior). Then both paste styles work and
 the README instructions shrink to one line.
 
 **Tests to add.** Three cases: container holds a raw URL (anchor gets created), holds an
@@ -316,12 +316,12 @@ build does NOT do" gets a happier ending).
 
 ### 13. Support Anki's night mode — 6/10
 
-**What's happening.** The styling assumes a light card: grey `#CCCCCC` code blocks,
-pale blue hints, and grading colours picked against white. Anki's night mode adds a
+**What's happening.** The styling assumes a light card: gray `#CCCCCC` code blocks,
+pale blue hints, and grading colors picked against white. Anki's night mode adds a
 `.nightMode` class to `.card`, and this template ignores it entirely.
 
 **What to do.** Add `.card.nightMode` overrides in `code_cards/styling.css` for the code
-block, hint box, tag/URL text, and input fields; check the green/red grading colours
+block, hint box, tag/URL text, and input fields; check the green/red grading colors
 still read against a dark background (they're set inline in JS, so either choose shades
 that work on both, or set a class instead of an inline style and let CSS decide —
 the class route is cleaner and more testable).
@@ -331,7 +331,7 @@ the class route is cleaner and more testable).
 rgb string. That refactor is worth it for testability alone.
 
 **Docs to update.** The Styling Reference in `CLAUDE.md`, the styling notes in
-`BUILD.md`, and the colour meanings in `05-answer-validation.md`.
+`BUILD.md`, and the color meanings in `05-answer-validation.md`.
 
 ### 14. Show the learner what they typed, not just the answer — 5/10
 
@@ -339,7 +339,7 @@ rgb string. That refactor is worth it for testability alone.
 answer. If you got it wrong, your attempt is gone — you can't compare what you typed
 against what was expected, which is half the learning.
 
-**What to do.** Keep the correct answer in the input (that behaviour is good), but
+**What to do.** Keep the correct answer in the input (that behavior is good), but
 preserve the attempt somewhere visible for wrong answers — a `title` tooltip is the
 zero-layout-risk option; a small struck-through span after the input is the more
 readable one. Worth a quick experiment on a real phone before committing.
@@ -350,20 +350,20 @@ correct answer → no clutter appears.
 **Docs to update.** `README.md` features list, `05-answer-validation.md`, and the
 `revealAnswer` description in `CLAUDE.md`.
 
-### 15. Don't rely on colour alone for right/wrong — 5/10
+### 15. Don't rely on color alone for right/wrong — 5/10
 
 **What's happening.** Green background = correct, red = wrong — and that's the only
-signal. For colour-blind learners (roughly 1 in 12 men), those two backgrounds can be
+signal. For color-blind learners (roughly 1 in 12 men), those two backgrounds can be
 nearly indistinguishable.
 
 **What to do.** Add a second channel: a ✓/✗ mark after the input, or distinct border
 styles — plus `aria-label="correct"/"incorrect"` for screen readers. Pairs naturally
-with item 13's move from inline colours to classes; do them together.
+with item 13's move from inline colors to classes; do them together.
 
 **Tests to add.** `revealAnswer` tests assert the mark/label as well as the class.
 
-**Docs to update.** `README.md` features, `05-answer-validation.md` colour legend, and
-the colour bullets in `CLAUDE.md`.
+**Docs to update.** `README.md` features, `05-answer-validation.md` color legend, and
+the color bullets in `CLAUDE.md`.
 
 ### 16. Sort tags alphabetically, not by ASCII — 4/10
 
@@ -440,7 +440,7 @@ remove `dist` from `.gitignore` and the docs. One less thing to explain.
    changing anything bigger.
 3. **Testing foundations (items 10, 11, 12):** the e2e test and shared helpers make
    every later change cheaper and safer.
-4. **The URL fix (item 9) and listener guard (item 4):** behaviour changes, now caught
+4. **The URL fix (item 9) and listener guard (item 4):** behavior changes, now caught
    by the new tests.
 5. **Polish (items 13–16), then housekeeping (17–19)** whenever there's a spare moment.
 
