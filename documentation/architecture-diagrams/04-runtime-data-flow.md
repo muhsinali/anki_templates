@@ -46,11 +46,12 @@ sequenceDiagram
 ## Step by step
 
 1. **Front loads → `initializeFrontTemplate()`.** The very first thing it does is
-   `window.data = storeInput()`, building `{ values, inputNames }`. `values`
-   is keyed by each input's `name` with its current value; `inputNames` stores
-   the ordered front-side input-name signature.
+   `window.data = storeInput()`, building `{ values, inputNames }`. `values[i]`
+   holds the current value of the i-th *named* input — positional, so duplicate
+   expected answers each keep their own entry; `inputNames` stores the ordered
+   front-side input-name signature.
 2. **Live sync.** `storeInput()` also attaches an `input` event listener per
-   field, so every keystroke updates `window.data.values[name]`.
+   field, so every keystroke updates `window.data.values[index]`.
 3. **Submit.** Pressing **Enter** triggers `setupEnterKeyEvent()`'s handler,
    which calls `window.pycmd("ans")` — Anki's bridge to show the answer side.
    *(This does not work on iPhone — a known limitation.)*
@@ -73,7 +74,7 @@ sequenceDiagram
   `window.data` itself is assigned explicitly on `window` (see
   [`02-build-pipeline`](./02-build-pipeline.md)).
 
-> ⚠️ **The `name` attribute is doing double duty.** It is both the dictionary key
-> in `window.data.values` *and* the expected correct answer. It also contributes
-> to the input-name signature used to reject stale data. An input with no `name`
-> is silently skipped in both `storeInput()` and `revealAnswer()`.
+> ⚠️ **The `name` attribute is doing double duty.** It is the expected correct
+> answer *and* part of the ordered input-name signature used to reject stale
+> data; the typed values themselves are stored by position. An input with no
+> `name` is silently skipped in both `storeInput()` and `revealAnswer()`.

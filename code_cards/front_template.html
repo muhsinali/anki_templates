@@ -120,10 +120,7 @@ function setupHint() {
     hint.addEventListener("mousedown", revealHint);
 }
 function storeInput() {
-    // Null prototype so prototype-clashing input names ("__proto__",
-    // "constructor") store and read back as plain own properties.
-    const values = Object.create(null);
-    const data = { values, inputNames: [] };
+    const data = { values: [], inputNames: [] };
     getInputs().forEach((input) => rememberInput(data, input));
     return data;
 }
@@ -131,10 +128,13 @@ function rememberInput(data, input) {
     const inputName = input.name;
     if (!inputName)
         return;
+    // Positional storage: duplicate expected answers on one card each keep
+    // their own typed value, and names like "__proto__" need no special case
+    const index = data.inputNames.length;
     data.inputNames.push(inputName);
-    data.values[inputName] = input.value;
+    data.values.push(input.value);
     input.addEventListener("input", () => {
-        data.values[inputName] = input.value;
+        data.values[index] = input.value;
     });
 }
 function initializeFrontTemplate() {
