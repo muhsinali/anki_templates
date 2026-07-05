@@ -186,6 +186,6 @@ Key CSS selectors in `code_cards/styling.css`:
 - **Jest tests must pass before commit**
 
 Install with `pre-commit install`; run manually with `pre-commit run --all-files`.
-CI also runs `pre-commit run --all-files`, so hook failures block the `Node 24`
-GitHub Actions check. `package.json` supports Node `>=24`; CI checks Node 24 as
-the minimum supported runtime and `.nvmrc` pins that local default.
+CI also runs `pre-commit run --all-files`, so hook failures block the
+`Node 26.4.0` GitHub Actions check. `package.json` allows Node `>=26.4.0`;
+CI and `.nvmrc` pin 26.4.0 as the tested baseline.

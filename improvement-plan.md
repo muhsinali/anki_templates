@@ -8,6 +8,9 @@ Items 1-19 are implemented in the current tree with tests and docs updated.
 Item 20 is the only remaining external operation because GitHub branch
 protection is repository settings state, not a local code change.
 
+Follow-up on 2026-07-05: the Node policy now uses 26.4.0 as the tested
+baseline while allowing newer versions with `engines.node: ">=26.4.0"`.
+
 Status key:
 
 - **Done** means implemented in code/docs/tests in this branch.
@@ -64,10 +67,17 @@ Status key:
   answer inputs get visible `Correct` / `Incorrect` feedback and ARIA labels,
   wrong answers preserve the learner's attempt as text, feedback is
   idempotent, and `styling.css` now includes Anki night-mode overrides.
-- **Items 17, 18, and 19:** Node policy is aligned to `>=24`, local
-  dependencies were refreshed to `@types/node@24.13.2`, the personal
+- **Items 17, 18, and 19:** Node policy is aligned to `>=26.4.0`, local
+  dependencies were refreshed to `@types/node@26.1.0`, the personal
   `_editor_button_styles.css` import was removed, and `tsconfig.json` is
   no-emit with the unused `dist/` references removed.
+
+### Follow-up updates
+
+- **2026-07-05 Node baseline:** `package.json` and `package-lock.json` now use
+  `engines.node: ">=26.4.0"`; `.nvmrc` and CI pin `26.4.0` as the tested
+  baseline while allowing newer Node versions locally, and `@types/node` is on
+  the 26 line.
 
 ### Docs updated
 
@@ -94,12 +104,12 @@ Status key:
 **Status: External.** The workflow exists in the repo, but merge protection only
 works after the GitHub repository settings require it.
 
-**Required setting.** Protect `main` and require the `Node 24` status check from
-the `CI` workflow. Also require branches to be up to date before merging so the
-green check applies to the PR head.
+**Required setting.** Protect `main` and require the `Node 26.4.0` status check
+from the `CI` workflow. Also require branches to be up to date before merging
+so the green check applies to the PR head.
 
 **Verification.** Use repository settings, the GitHub API, or a test PR to
-confirm that `main` requires the `Node 24` CI status before merge.
+confirm that `main` requires the `Node 26.4.0` CI status before merge.
 
 ---
 
@@ -107,7 +117,8 @@ confirm that `main` requires the `Node 24` CI status before merge.
 
 - `npm install` needed network access to refresh the local install and clear the
   stale `@types/node@22.15.32` copy. After approval, `npm ls` resolved cleanly
-  with `@types/node@24.13.2`.
+  with `@types/node@24.13.2`, then the Node 26.4.0 baseline follow-up refreshed
+  `@types/node` to `26.1.0`.
 - `npm install` reported 6 audit findings and pending install-script approvals
   for `fsevents` and `unrs-resolver`. Those were not part of this plan and were
   not auto-fixed because they can change dependency policy; they should be

@@ -1,7 +1,7 @@
 {
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.13.2",
+    "@types/node": "^26.1.0",
     "fast-check": "^4.8.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
@@ -16,6 +16,6 @@
   },
   "private": true,
   "engines": {
-    "node": ">=24"
+    "node": ">=26.4.0"
   }
 }
