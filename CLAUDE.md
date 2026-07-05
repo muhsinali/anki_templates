@@ -12,7 +12,7 @@ This is an Anki flashcard template system that generates interactive code practi
 - `BUILD.md` — Developer-facing: build/test workflow, extending the system, troubleshooting
 - `documentation/architecture-diagrams/` — Seven hand-authored Mermaid diagrams (system context, build pipeline, module structure, runtime data flow, answer validation, card lifecycles, test architecture & CI gate). Update these when the architecture changes.
 - `improvement-plan.md` — Prioritized backlog of bugs, testing gaps, improvements, and housekeeping (scored by impact)
-- `improve-test-infrastructure.md` — Sequenced plan for the test infrastructure (CI, build tests, e2e test, coverage fix); claims machine-verified — see its validation log
+- `improve-test-infrastructure.md` — The (fully executed) test-infrastructure plan: CI, build tests, e2e test, coverage fix. Its execution record maps every step to its commit; kept as the reasoning behind the current test architecture
 
 ## Development Commands
 
