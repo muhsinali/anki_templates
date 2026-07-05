@@ -9,6 +9,9 @@
 > result, and diagram
 > [07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md)
 > shows the architecture it produced.
+>
+> Follow-up on 2026-07-05: the repo now uses Node 26.4.0 as the tested
+> baseline and allows newer Node versions with `engines.node: ">=26.4.0"`.
 
 This was a step-by-step plan for upgrading the testing infrastructure of the Anki code
 cards project, based on a full read-through of the source, tests, build script,
@@ -36,7 +39,7 @@ one is the more detailed and current.
 ## Execution record
 
 All work landed on one branch (PR #5), one commit per step plus a review-pass
-commit and two follow-ups, each commit passing the full local gate (both
+commit and follow-ups, each commit passing the full local gate (both
 type-checks, the whole suite with coverage thresholds, build + drift check,
 and — from step 7 on — the installed pre-commit hooks) before being pushed.
 
@@ -52,12 +55,13 @@ and — from step 7 on — the installed pre-commit hooks) before being pushed.
 | 7 · Dependency hygiene | `2cc8b7c` | Jest 30 + environment 30 (42/42 unmodified, as pre-validated); direct `jsdom` dropped; prettier **uninstalled** (the "decide" call — it formatted nothing); `private: true`; `engines` + `.nvmrc` |
 | 8 · Stretch (partial, by design) | `1d884d1` | fast-check property tests landed (6 tests: `parseInput` idempotence / no whitespace or curly quotes / quote-style-insensitive grading / identity on normalized input; `prettifyTag` never emits `::` or `_`, idempotent; both sabotages seen red). Stryker, Playwright, and the golden snapshot deliberately not done, per this plan's own criteria. Side effect: the pre-commit typecheck hook blocked fast-check's declarations until `tsconfig.jest.json` gained `skipLibCheck` (its `.d.ts` uses subpath type imports legacy `moduleResolution: "node"` cannot follow). 42 → 48 tests |
 | Docs & diagrams | `bbbce59` | New diagram `07-test-and-ci.md` (test architecture + CI gate, all Mermaid blocks render-validated); `03-module-structure` refreshed; indexes and cross-links updated |
-| Node 24 consolidation | `08eb1f0` | Post-plan decision: Node 24 as the minimum supported runtime. Matrix → one Node 24 job; `engines: ">=24"`; `.nvmrc` 24; `@types/node` ^24; docs aligned. (The 22+24 matrix caught the `.d.ts` divergence before retiring) |
+| Node 24 consolidation | `08eb1f0` | Historical post-plan decision: Node 24 as the supported runtime. Matrix → one Node 24 job; `engines: "24.x"`; `.nvmrc` 24; `@types/node` ^24; docs aligned. (The 22+24 matrix caught the `.d.ts` divergence before retiring) |
+| Node 26.4.0 baseline | Working tree follow-up | Updated the repo baseline to Node 26.4.0 while allowing newer releases with `engines.node: ">=26.4.0"`; `.nvmrc`, CI, docs, required-check guidance, and `@types/node@26.1.0` now point at the 26 line. |
 
 **End state:** 48 tests across 6 suites (unit, build-script, property,
 integration) in ~1s; `src/` at 100% statements / 97.3% branches with
 thresholds enforced in CI; `scripts/` at 74.5% against a 60 floor; CI green
-on Node 24 for type-check ×2, tests + coverage, build, and the `code_cards/`
+on Node 26.4.0 for type-check ×2, tests + coverage, build, and the `code_cards/`
 drift gate; the same checks wired into pre-commit (type-check + tests) and
 `make check`.
 
@@ -193,7 +197,8 @@ the fundamentals hold.
 > were out of scope for the single-commit-per-step constraint); badge added;
 > BUILD.md's aspirational CI section replaced with the real thing. Later
 > hardened in `f1d3e8d` (read-only token, concurrency cancellation) and
-> consolidated to a single Node 24 job in `08eb1f0`.
+> consolidated to a single Node 24 job in `08eb1f0`; the active baseline was
+> later moved to Node 26.4.0.
 
 **Why first.** Every other improvement only pays off if it runs on every change. Right
 now, tests run solely via an *optionally installed* pre-commit hook — a fresh clone, a
@@ -563,8 +568,8 @@ cannot reach a commit, let alone a merge.
 > `jsdom` dropped (step 3 settled the decision); prettier **uninstalled**
 > (the "decide" call — wiring it can be revisited if contributors multiply);
 > `private: true`, `engines`, `.nvmrc` added. Superseded in part by the
-> post-plan Node 24 consolidation (`08eb1f0`): `engines` is now `">=24"`,
-> `.nvmrc` says 24, and `@types/node` is ^24.
+> post-plan Node updates: `engines` is now `">=26.4.0"`, `.nvmrc` says
+> 26.4.0, `@types/node` is `^26.1.0`, and newer Node releases are allowed.
 
 **Why seventh.** None of these block anything, but each is a small lie the toolchain
 tells: types that describe a Jest we don't run, a jsdom we don't use, a formatter that
@@ -737,7 +742,8 @@ Things execution surfaced that the validation pass could not have:
 **Previously flagged as not machine-verified — now resolved:** the GitHub
 Actions workflow was validated by real runs, including one genuine failure it
 caught correctly (the `.d.ts` coverage divergence) and a green-on-both-legs
-history before consolidation to Node 24. **Still unexplored, by choice:** the
+history before consolidation to Node 24, later superseded by the Node 26.4.0
+baseline. **Still unexplored, by choice:** the
 structural Route B for coverage (moot — the V8 recipe works in production),
 Stryker's interaction with the eval pattern, and the Playwright variant
 (both parked per step 8's own criteria).
