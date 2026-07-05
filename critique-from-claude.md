@@ -11,7 +11,7 @@ The most important problems found:
 1. **A broken Mermaid diagram shipped in the Codex commits** — a `;` inside a sequence-diagram note in `04-runtime-data-flow.md` is a statement separator in Mermaid, so the whole runtime-data-flow diagram fails to parse and renders as an error box on GitHub. This was the only outright defect Codex *introduced*. **Fixed and all 12 diagram blocks now verified to render.**
 2. **The new `window.data` contract is enforced only at compile time.** The back template now reads `window.data.inputNames.length` from a global that lives in Anki's long-lived webview. A stale value written by the *previous* template version (shape `Record<string, string>`, no `inputNames`) — i.e. exactly the state a user can be in while upgrading — throws a `TypeError` that kills the entire back-side script, including tags and the URL link. **Fixed with a runtime shape guard plus tests.**
 3. **Prototype-clashing input names crash the back side** (pre-existing, but untouched by a robustness-focused pass). For a JavaScript practice deck, `<input name="__proto__">` is a plausible card; the plain-object store makes the write a silent no-op and the read returns `Object.prototype`, so `parseInput()` throws and the back side dies. **Fixed with a null-prototype store plus unit and end-to-end tests.**
-4. **CI does its heaviest work twice** — the new pre-commit CI step re-runs the type-checks and the Jest suite that dedicated workflow steps run anyway. **Fixed with `SKIP=typecheck,jest-tests`.**
+4. **CI does its heaviest work twice** — the new pre-commit CI step re-runs the type-checks and the Jest suite that dedicated workflow steps run anyway. **Flagged; the maintainer chose to keep the duplication for now** (a `SKIP=typecheck,jest-tests` fix was applied during review, then reverted on request), so `ci.yml` ships unchanged.
 
 Six regression tests were added (suite: 60 → 66, all green); five were demonstrated to fail against the pre-fix code before being trusted, matching the repo's own red-before-green discipline.
 
@@ -40,7 +40,8 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 | `npx tsc -p tsconfig.json --noEmit` / `npx tsc -p tsconfig.jest.json --noEmit` | Type-check (build never type-checks) | Pass (before and after changes) | |
 | `npm test -- --coverage` | Test suite + coverage thresholds | Pass — 60/60 before; **66/66 after**; thresholds met both times | src coverage after: 99.58% stmts / 97.75% branches |
 | `npm run build` + `git diff --exit-code code_cards/` | Build + CI drift gate | Pass | Build reproduced committed output byte-for-byte before my `src/` changes; regenerated and back in sync after |
-| `pip install "pre-commit>=4,<5"` then `pre-commit run --all-files` | The full hook suite CI runs | Pass (before and after changes) | Also re-run with `SKIP=typecheck,jest-tests` to validate the CI change |
+| `pip install "pre-commit>=4,<5"` then `pre-commit run --all-files` | The full hook suite CI runs | Pass (before and after changes) | A `SKIP=typecheck,jest-tests` variant was also validated, then reverted at the maintainer's request |
+| Temporary cross-version Jest suite (old `main`/`239eefb` templates built from git history via the current `transpileSource`) | Verify `code_cards/` backwards compatibility across the upgrade transition | Pass — 4/4 scenarios | See "Backwards compatibility of `code_cards/`" below; test deleted after running (depends on git history) |
 | `mmdc` (mermaid-cli, scratchpad install, preinstalled Chromium) over all 12 ` ```mermaid ` blocks in `documentation/architecture-diagrams/` | Validate the Codex-rewritten diagrams actually render | **1 of 12 blocks failed** (04-runtime-data-flow) → fixed → **12/12 render** | The only tooling not already configured in the repo; used for verification only, not added as a dependency |
 | `git stash push -- src/` + `npm test` (then pop) | Prove the new tests fail against pre-fix source | 4 of 66 fail without the fixes | Red-before-green check |
 | Targeted revert of the `rawAttempt` hardening + `npm test -- tests/back_template.test.ts` | Prove the non-string test is load-bearing | 1 of 15 fails without the fix | Restored afterwards |
@@ -81,10 +82,11 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 
 - **Location:** `.github/workflows/ci.yml` — "Run pre-commit hooks" step vs the four dedicated steps below it
 - **Category:** performance / developer experience
-- **Status:** fixed
-- **Evidence:** Codex's `65c55c1` added `pre-commit run --all-files` to CI. The local hook set includes `typecheck` (both tsconfigs) and `jest-tests` (`npm test`). The workflow then *also* runs `npx tsc` twice, and `npm test -- --coverage`. Net: every CI run executed `tsc` four times and the full Jest suite twice.
-- **Impact:** Roughly doubles the expensive portion of every CI run on every push and PR, for zero additional signal — the dedicated Jest step is strictly stronger (it enforces coverage thresholds; the hook does not).
-- **Recommendation / Resolution:** Set `SKIP: typecheck,jest-tests` on the pre-commit step (pre-commit's standard mechanism), with a comment explaining why, and documented the same in `BUILD.md`'s CI listing. Local commits still run the full hook set. Verified both modes pass.
+- **Status:** acknowledged — maintainer decision to keep as-is
+- **Evidence:** Codex's `65c55c1` added `pre-commit run --all-files` to CI. The local hook set includes `typecheck` (both tsconfigs) and `jest-tests` (`npm test`). The workflow then *also* runs `npx tsc` twice, and `npm test -- --coverage`. Net: every CI run executes `tsc` four times and the full Jest suite twice.
+- **Impact:** Roughly doubles the expensive portion of every CI run on every push and PR — the dedicated Jest step is strictly stronger (it enforces coverage thresholds; the hook does not).
+- **Recommendation:** If CI time ever matters, `SKIP: typecheck,jest-tests` on the pre-commit step is pre-commit's standard mechanism and loses no signal.
+- **Resolution:** A `SKIP` fix was applied and verified during the review, then **reverted at the maintainer's request** — the preference for now is to run the hooks in full in CI as well as locally, accepting the duplicate work. `ci.yml` is unchanged in the final diff.
 
 ### [Severity: Low] Grading assumed stored attempts are strings
 
@@ -158,6 +160,23 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 
 Minor observations not worth changes: the tag sort is intentionally host-locale-dependent (`localeCompare` with `undefined` locale), so ordering of accented tags can differ between devices; `revealInputAnswer` deliberately clears author-set inline `background-color`/`font-weight` so grading classes win; GitHub Actions are pinned by major tag rather than SHA (a hardening option, but common practice); the `scripts/` coverage ratchet (60/60/55/60) now sits far below actuals (~94/93/83/94) and could be raised; the `buildTemplate` test prints the script's `console.log` into Jest output.
 
+## Backwards compatibility of `code_cards/`
+
+Verified at the maintainer's request: what happens to existing decks and mid-update webview states when users move from the currently-installed templates (`main`, `239eefb`) to these.
+
+**Method:** a temporary Jest suite built the *actual old templates* out of git history (through the current `transpileSource`/`injectJavaScript`, same compiler settings), rendered a README-style card (two inputs including a smart-quoted name, Hint, Tags, URL field carrying an anchor — the old authoring convention), and exercised the mixed states in one jsdom window, exactly as Anki's long-lived webview would. The suite (4/4 passing) was deleted after running because it reads git history, which would break on shallow clones in CI.
+
+| Scenario | Result |
+|---|---|
+| Existing card content on the new templates | ✅ Grades as before — the `name`-attribute contract, `exerciseprecontainer`/`pre` structure, hint, tags, and URL-field anchor all behave; smart-quote grading intact |
+| **Old front `window.data` → new back** (the real upgrade moment: webview holds pre-update state) | ✅ The new shape guard skips grading instead of crashing; tags and link still render. *This safety is added by this PR — without the guard, this state threw and blanked the back-side chrome* |
+| **New front `window.data` → old back** (reverse mismatch, transient) | ✅ Old back can't see values inside the new shape, so it grades everything red with its inline styles for that one view; no crash |
+| Old + old baseline through the same harness | ✅ Sanity check — the harness isn't what makes the mixed states survive |
+
+**JS-engine floor is unchanged.** The old built templates already required ES2020 (`??` appears in the shipped JS, plus `const`/arrow functions). The new ones add `?.` (the same ES2020 revision as `??`) and template literals (ES6) — no newer syntax. Every newly-used API (`Object.create`, `Array.isArray`, `classList`, `insertAdjacentElement`, `localeCompare`, `readOnly`, and `new URL` inside a `try/catch`) long predates that floor, and `KeyboardEvent.isComposing` degrades gracefully where absent (`undefined` → Enter still flips). Any Anki webview that ran the old templates runs these.
+
+**Known degradation (documented, by design):** new templates with a **stale `styling.css`** still grade correctly — inputs lock read-only, values are replaced, and the "Correct" / "Incorrect (you typed: …)" text labels render — but without the color/border styling until `styling.css` is re-pasted (grading moved from inline RGB styles to classes, which is what makes night mode possible). The README's Quick Setup now says to re-paste all three files together. The reverse (new `styling.css`, old templates) is harmless: old inline styles win, extra rules sit unused.
+
 ## Improvements applied
 
 **`src/front_template.ts`**
@@ -176,7 +195,7 @@ Minor observations not worth changes: the tag sort is intentionally host-locale-
 **`tests/back_template.test.ts`** — +4 tests: grading from a null-prototype store; stale pre-upgrade `window.data` shape skips grading and still renders tags (red before fix); `window.data` missing `values` skips grading (red before fix); non-string stored value grades as empty attempt (red before fix).
 **`tests/integration.test.ts`** — +1 test: full journey for an `__proto__`-named input — store, flip, grade correct (red before fix).
 
-**`.github/workflows/ci.yml`** — `SKIP: typecheck,jest-tests` on the pre-commit step with an explanatory comment. Why: removes duplicated tsc/Jest work (~2× CI cost) with zero signal loss (dedicated steps are a superset — Jest runs with coverage thresholds there). Tests: both `SKIP` and full modes run locally, green.
+**`.github/workflows/ci.yml`** — unchanged in the final diff. A `SKIP: typecheck,jest-tests` de-duplication was applied and validated during the review, then reverted at the maintainer's request (see the CI finding above).
 
 **`.codespellrc`** — `skip = package-lock.json`; ignore list reduced to `ans`. Why: stop spell-checking base64 hashes; decouple CI from lockfile content churn. Verified with a full pre-commit run.
 
@@ -188,14 +207,14 @@ Minor observations not worth changes: the tag sort is intentionally host-locale-
 
 **`CLAUDE.md`** — data-flow step 3, back-template function list, and gotcha 8 updated to describe the runtime shape guard.
 
-**`BUILD.md`** — "Why `module: none`" data-flow sentence mentions shape validation; CI listing shows the `SKIP` invocation with its rationale.
+**`BUILD.md`** — "Why `module: none`" data-flow sentence mentions shape validation.
 
 ## Tests and validation
 
 - **Tests added:** 6 (1 front unit, 4 back unit, 1 integration). **Tests updated:** none of the existing 60 needed changes — all fixes are behavior-preserving for well-formed state.
 - **Suite:** 66/66 passing across 6 suites (was 60/60 at review start).
 - **Red-before-green:** with the `src/` fixes stashed, exactly the 4 fix-dependent tests fail; with a targeted revert of the non-string hardening, that test fails alone. (The fifth new back test documents the null-prototype contract and passes either way by design; the integration `__proto__` test was in the stash-failure set.)
-- **Checks passing (after changes):** `tsc` on both tsconfigs; `npm test -- --coverage` with thresholds (src: 99.58% statements / 97.75% branches — up from 99.54 / 94.87); `npm run build` with `code_cards/` regenerated and in sync; `pre-commit run --all-files` (full hook set, and again with the CI `SKIP` set); mermaid-cli render of all 12 diagram blocks.
+- **Checks passing (after changes):** `tsc` on both tsconfigs; `npm test -- --coverage` with thresholds (src: 99.58% statements / 97.75% branches — up from 99.54 / 94.87); `npm run build` with `code_cards/` regenerated and in sync; `pre-commit run --all-files`; mermaid-cli render of all 12 diagram blocks; the temporary 4-scenario cross-version compatibility suite (old `main` templates vs new, mixed webview states).
 - **Checks failing:** none locally.
 - **Not verifiable here:** an actual GitHub Actions run on Node 26.4.0 (container has Node 22.22.2; engines is warn-only). Everything CI runs was executed locally and passes on 22, which itself informs the Node-floor finding.
 
