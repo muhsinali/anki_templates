@@ -44,11 +44,6 @@ jobs:
         run: python -m pip install "pre-commit>=4,<5"
 
       - name: Run pre-commit hooks
-        # The typecheck and jest-tests hooks are skipped here because the
-        # dedicated steps below run them anyway (jest with enforced coverage,
-        # which the hook lacks) — without SKIP, CI does all of that work twice
-        env:
-          SKIP: typecheck,jest-tests
         run: pre-commit run --all-files --show-diff-on-failure --color=always
 
       - name: Type-check source (the build never type-checks)
