@@ -10,24 +10,43 @@ exact order; the numbered nodes match the call order in the function body.
 
 ```mermaid
 flowchart TB
-    F0(["Front script loads<br/>initializeFrontTemplate()"]) --> F1["1 · window.data = storeInput()<br/>seed values + attach 'input' listeners"]
-    F1 --> F2["2 · setupDOMContentLoaded(callback)"]
-    F2 -.->|internally| D{"document.readyState<br/>=== 'loading' ?"}
-    D -->|yes| DA["defer: run on DOMContentLoaded"]
-    D -->|no| DB["run callback immediately"]
-    DA --> CB["callback:<br/>setInputAttributes() + placeCursor()"]
-    DB --> CB
-    F2 -->|next step| F3["3 · setupHint()<br/>touchstart / mousedown → reveal hint"]
-    F3 --> F4["4 · setupEnterKeyEvent()<br/>Enter → pycmd('ans')"]
-    F4 --> F5["5 · displayTags(Tags)"]
-    F5 --> F6["6 · setLinkText()"]
+    front_load(["Front script loads"])
+    seed_data["1. storeInput()<br/>seed data + listen for input"]
+    dom_setup["2. setupDOMContentLoaded(callback)"]
+    dom_ready{"document.readyState<br/>is loading?"}
+    defer_callback["Defer callback<br/>until DOMContentLoaded"]
+    run_callback["Run callback<br/>immediately"]
+    prepare_inputs["Callback<br/>set attributes + place cursor"]
+    setup_hint["3. setupHint()<br/>reveal hint on touch/mouse"]
+    setup_enter["4. setupEnterKeyEvent()<br/>Enter calls pycmd('ans')"]
+    display_tags["5. displayTags(Tags)"]
+    set_link["6. setLinkText()"]
+
+    %% First, create the front-to-back state channel.
+    front_load --> seed_data
+    seed_data --> dom_setup
+
+    %% Then decide when DOM-touching work can run.
+    dom_setup -.->|internal check| dom_ready
+    dom_ready -->|yes| defer_callback
+    dom_ready -->|no| run_callback
+    defer_callback --> prepare_inputs
+    run_callback --> prepare_inputs
+
+    %% Continue the entry-point call order.
+    dom_setup -->|next step| setup_hint
+    setup_hint --> setup_enter
+    setup_enter --> display_tags
+    display_tags --> set_link
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef proc fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
     classDef branch fill:#eceff1,stroke:#607d8b,color:#000;
-    class F0 entry;
-    class F1,F2,F3,F4,F5,F6,CB proc;
-    class DA,DB branch;
+
+    class front_load entry;
+    class seed_data,dom_setup,prepare_inputs process;
+    class setup_hint,setup_enter,display_tags,set_link process;
+    class defer_callback,run_callback branch;
 ```
 
 - **`storeInput()` runs first** so `window.data` exists before anything else.
@@ -47,19 +66,30 @@ job is to grade, then render the shared chrome (tags + link).
 
 ```mermaid
 flowchart TB
-    B0(["Back script loads<br/>initializeBackTemplate()"]) --> B1{"window.data set?<br/>(carried over from Front)"}
-    B1 -->|yes| B2["revealAnswer(window.data)<br/>grade + recolor inputs"]
-    B1 -->|no| B3["skip grading<br/>(e.g. previewed without a Front pass)"]
-    B2 --> B4["displayTags(Tags)"]
-    B3 --> B4
-    B4 --> B5["setLinkText()"]
+    back_load(["Back script loads"])
+    has_data{"window.data set?"}
+    grade_answers["revealAnswer(window.data)<br/>grade + recolor"]
+    skip_grading["Skip grading<br/>previewed without Front"]
+    display_tags["displayTags(Tags)"]
+    set_link["setLinkText()"]
+
+    %% Grade only when the Front card saved learner input.
+    back_load --> has_data
+    has_data -->|yes| grade_answers
+    has_data -->|no| skip_grading
+
+    %% Shared chrome renders in both paths.
+    grade_answers --> display_tags
+    skip_grading --> display_tags
+    display_tags --> set_link
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef proc fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
     classDef branch fill:#eceff1,stroke:#607d8b,color:#000;
-    class B0 entry;
-    class B2,B4,B5 proc;
-    class B3 branch;
+
+    class back_load entry;
+    class grade_answers,display_tags,set_link process;
+    class skip_grading branch;
 ```
 
 - The **`window.data` guard** means the Back is defensive: if it somehow renders
@@ -71,10 +101,11 @@ flowchart TB
 
 ## Shared chrome (both sides) — from `common.ts`
 
-| Function | Effect |
-|----------|--------|
-| `displayTags("{{Tags}}")` | Splits the space-delimited tag string, prettifies each (`A::B_C` → `A - B C`), sorts, and writes into `#content_tag_left` |
-| `setLinkText()` | Sets the first `<a>`'s text to `"Link"` (the URL field, once populated, becomes the source link) |
+- `displayTags("{{Tags}}")` splits the space-delimited tag string, prettifies
+  each tag (`A::B_C` → `A - B C`), sorts them, and writes the result into
+  `#content_tag_left`.
+- `setLinkText()` sets the first `<a>`'s text to `"Link"`. The URL field, once
+  populated, becomes the source link.
 
 ## Related
 

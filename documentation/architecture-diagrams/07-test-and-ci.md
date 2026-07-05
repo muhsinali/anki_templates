@@ -15,44 +15,51 @@ whole front → flip → back journey.
 
 ```mermaid
 flowchart TB
-    SRC["src/*.ts"]
-    TS["transpileSource()<br/>single home of the compiler settings<br/>throws on syntax errors"]
-    INJ["injectJavaScript()"]
-    BASE["templates/*_base.html"]
+    source_files["src/*.ts"]
+    transpiler["transpileSource()<br/>shared compiler settings"]
+    injector["injectJavaScript()"]
+    base_templates["templates/*_base.html"]
 
-    subgraph unit["Unit + property layer"]
+    subgraph unit_layer["Unit + property layer"]
         direction TB
-        HELP["tests/helpers.ts — loadScripts()<br/>inline source map + file:// sourceURL, cached"]
-        EVAL["window.eval into jsdom<br/>functions attach as globals"]
-        UT["common · front · back unit tests<br/>property tests (fast-check)"]
-        HELP --> EVAL --> UT
+        helper["tests/helpers.ts<br/>loadScripts()"]
+        eval_step["window.eval into jsdom"]
+        unit_tests["unit tests<br/>property tests"]
+
+        helper --> eval_step
+        eval_step --> unit_tests
     end
 
-    subgraph integ["Integration layer"]
+    subgraph integration_layer["Integration layer"]
         direction TB
-        MEM["build both templates in-memory"]
-        RENDER["render Anki fields<br/>(mustache substitute)"]
-        JOURNEY["load front → type → Enter →<br/>flip (same window, fresh DOM) → grade"]
-        MEM --> RENDER --> JOURNEY
+        memory_build["build templates in-memory"]
+        field_render["render Anki fields"]
+        card_journey["front -> type -> flip -> grade"]
+
+        memory_build --> field_render
+        field_render --> card_journey
     end
 
-    SRC --> TS
-    TS --> HELP
-    TS --> MEM
-    BASE --> INJ
-    INJ --> MEM
+    %% Both test layers use the build script's compiler settings.
+    source_files --> transpiler
+    transpiler --> helper
+    transpiler --> memory_build
+    base_templates --> injector
+    injector --> memory_build
 
-    UT --> COV["V8 coverage<br/>sourceURL attributes eval'd code<br/>back to the real .ts lines"]
-    COV --> GATE["coverageThreshold ratchet<br/>src/ ≥ 95 stmts · scripts/ ≥ 60"]
+    %% Coverage maps eval'd code back to the real TypeScript files.
+    unit_tests --> coverage["V8 coverage<br/>sourceURL -> real .ts lines"]
+    coverage --> threshold["coverageThreshold ratchet<br/>src >= 95%, scripts >= 60%"]
 
-    classDef in fill:#e1f5ff,stroke:#0288d1,color:#000;
-    classDef mid fill:#fff3cd,stroke:#f9a825,color:#000;
+    classDef input fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef transform fill:#fff3cd,stroke:#f9a825,color:#000;
     classDef test fill:#fce4ec,stroke:#c2185b,color:#000;
-    classDef out fill:#d4edda,stroke:#2e7d32,color:#000;
-    class SRC,BASE in;
-    class TS,INJ,HELP,MEM mid;
-    class EVAL,UT,RENDER,JOURNEY test;
-    class COV,GATE out;
+    classDef gate fill:#d4edda,stroke:#2e7d32,color:#000;
+
+    class source_files,base_templates input;
+    class transpiler,injector,helper,memory_build transform;
+    class eval_step,unit_tests,field_render,card_journey test;
+    class coverage,threshold gate;
 ```
 
 Two non-obvious mechanics, documented so nobody "fixes" them:
@@ -70,45 +77,76 @@ Two non-obvious mechanics, documented so nobody "fixes" them:
 ## 7b · The CI gate
 
 Runs on every push and pull request, on Node 24 — the current LTS and the
-project's single supported line (`engines: ">=24"`, `.nvmrc`). A PR cannot
-merge green if any step fails.
+project's single supported line (`engines: "24.x"`, `.nvmrc`). The CI job is
+designed to be the required PR status check, so any failed step keeps the PR
+red.
 
 ```mermaid
 flowchart TB
-    TRIGGER(["push / pull_request"]) --> CI["npm ci"]
-    CI --> TC1["tsc -p tsconfig.json --noEmit<br/>(the build never type-checks)"]
-    TC1 --> TC2["tsc -p tsconfig.jest.json --noEmit<br/>(tests + scripts stay type-sound)"]
-    TC2 --> TESTS["npm test -- --coverage<br/>48 tests + threshold ratchet"]
-    TESTS --> BUILD["npm run build"]
-    BUILD --> DRIFT["git diff --exit-code code_cards/<br/>committed output must match src/"]
-    DRIFT --> PASS(["merge allowed"])
+    trigger(["push / pull_request"])
+    install["npm ci"]
+    precommit["pre-commit run --all-files"]
+    typecheck_src["tsc -p tsconfig.json --noEmit"]
+    typecheck_tests["tsc -p tsconfig.jest.json --noEmit"]
+    tests["npm test -- --coverage"]
+    build["npm run build"]
+    drift["git diff --exit-code code_cards/"]
+    required_check["Required status check<br/>Node 24"]
+    merge_allowed(["PR merge allowed"])
+    red_status(["PR stays red"])
 
-    TC1 -- type error --> FAIL(["red ✗"])
-    TC2 -- type error --> FAIL
-    TESTS -- failure or coverage drop --> FAIL
-    BUILD -- syntax error --> FAIL
-    DRIFT -- forgot to regenerate --> FAIL
+    %% Main CI path.
+    trigger --> install
+    install --> precommit
+    precommit --> typecheck_src
+    typecheck_src --> typecheck_tests
+    typecheck_tests --> tests
+    tests --> build
+    build --> drift
+    drift --> required_check
+    required_check --> merge_allowed
+
+    %% Any gate failure blocks the required check.
+    precommit -->|hook failure| red_status
+    typecheck_src -->|type error| red_status
+    typecheck_tests -->|type error| red_status
+    tests -->|failure or coverage drop| red_status
+    build -->|syntax or build error| red_status
+    drift -->|generated output drift| red_status
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef proc fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
     classDef ok fill:#d4edda,stroke:#2e7d32,color:#000;
     classDef bad fill:#f8d7da,stroke:#c62828,color:#000;
-    class TRIGGER entry;
-    class CI,TC1,TC2,TESTS,BUILD,DRIFT proc;
-    class PASS ok;
-    class FAIL bad;
+
+    class trigger entry;
+    class install,precommit,typecheck_src,typecheck_tests process;
+    class tests,build,drift,required_check process;
+    class merge_allowed ok;
+    class red_status bad;
 ```
 
-The drift gate (last step) is the quiet hero: it converts "remember to
-regenerate `code_cards/` after editing `src/`" into a hard failure and
-implicitly asserts the build is deterministic.
+The pre-commit gate runs the same hooks as a local commit:
 
-The same checks run locally: `make check` (typecheck + test + build) and the
-pre-commit hooks (`pre-commit install`) catch everything before it reaches CI.
+- formatting guards from `pre-commit-hooks`;
+- `codespell`;
+- TypeScript type-checks for both tsconfigs;
+- Jest tests.
+
+The drift gate converts "remember to regenerate `code_cards/` after editing
+`src/`" into a hard failure and implicitly asserts the build is deterministic.
+
+To block PR merges, protect `main` in GitHub and require the CI job's status
+check, `Node 24` from the `CI` workflow. Enable "Require status checks to pass
+before merging" and "Require branches to be up to date before merging" so the
+green check must be current for the PR head.
+
+The same checks run locally: `make check` (typecheck + test + build) plus
+`pre-commit run --all-files`.
 
 ## Related
 
 - Build mechanics: [`02-build-pipeline`](./02-build-pipeline.md)
 - Which tests target which modules: [`03-module-structure`](./03-module-structure.md)
-- The runtime behaviour the integration test replays:
+- The runtime behavior the integration test replays:
   [`04-runtime-data-flow`](./04-runtime-data-flow.md)

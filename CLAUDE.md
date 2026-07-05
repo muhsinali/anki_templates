@@ -164,7 +164,7 @@ Key CSS selectors in `code_cards/styling.css`:
 - `.card` - Base card styling (Arial 18px)
 - `.content_aligned` - Main content container (absolute: top 6%, left 11%, width 76%, height 70%)
 - `#hint` - Hint box (`.hidden` hides `.payload`; `.shown` hides `.trigger` and shows `.payload`)
-- `.exerciseprecontainer` - Code block container (MesloLGS NF font, grey rounded box)
+- `.exerciseprecontainer` - Code block container (MesloLGS NF font, gray rounded box)
 - `input` - Code input fields (MesloLGS NF 16px; width is NOT set here — cards size inputs inline, e.g. `style="width: 20ch;"`)
 - `#content_tag_left` - Tag display area (bottom-left)
 - `#url_container` - URL area (bottom-right)
@@ -176,7 +176,10 @@ Key CSS selectors in `code_cards/styling.css`:
 - End-of-file fixer
 - YAML/JSON validation
 - Line ending normalization (→ LF)
+- American English spelling (codespell with the `en-GB_to_en-US` dictionary — British spellings fail the hook)
 - **TypeScript must type-check before commit** (both tsconfigs, `--noEmit`)
 - **Jest tests must pass before commit**
 
 Install with `pre-commit install`; run manually with `pre-commit run --all-files`.
+CI also runs `pre-commit run --all-files`, so hook failures block the `Node 24`
+GitHub Actions check.

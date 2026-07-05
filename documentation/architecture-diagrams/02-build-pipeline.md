@@ -10,18 +10,26 @@ function body runs with `name = "front"` and then `name = "back"`.
 
 ```mermaid
 flowchart TB
-    START(["npm run build<br/>ts-node scripts/build-templates.ts"]) --> MAIN["main()"]
-    MAIN --> BF["buildTemplate('front')"]
-    MAIN --> BB["buildTemplate('back')"]
-    BF --> DONE["code_cards/front_template.html"]
-    BB --> DONE2["code_cards/back_template.html"]
+    build_command(["npm run build"])
+    main_function["main()"]
+    front_build["buildTemplate('front')"]
+    back_build["buildTemplate('back')"]
+    front_output["code_cards/front_template.html"]
+    back_output["code_cards/back_template.html"]
+
+    build_command --> main_function
+    main_function --> front_build
+    main_function --> back_build
+    front_build --> front_output
+    back_build --> back_output
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef proc fill:#e1f5ff,stroke:#0288d1,color:#000;
-    classDef out fill:#d4edda,stroke:#2e7d32,color:#000;
-    class START entry;
-    class MAIN,BF,BB proc;
-    class DONE,DONE2 out;
+    classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef output fill:#d4edda,stroke:#2e7d32,color:#000;
+
+    class build_command entry;
+    class main_function,front_build,back_build process;
+    class front_output,back_output output;
 ```
 
 ## Inside `buildTemplate(name)` — the transpile + inject step
@@ -33,20 +41,33 @@ validated and replaced with literal JavaScript text. The diagram shows the
 
 ```mermaid
 flowchart LR
-    COMMON["src/common.ts"] -->|"transpileSource()"| JS1["common JS string"]
-    SPECIFIC["src/front_template.ts"] -->|"transpileSource()"| JS2["template JS string"]
-    BASE["templates/front_template_base.html<br/>contains %COMMON_JS% + %TEMPLATE_JS%"] --> R
+    %% Inputs for one card side.
+    common_source["src/common.ts"]
+    front_source["src/front_template.ts"]
+    front_base["front base HTML<br/>with placeholders"]
 
-    JS1 -->|"literal insert into %COMMON_JS%"| R["injectJavaScript(...)<br/>checked placeholder injection"]
-    JS2 -->|"replaces %TEMPLATE_JS%"| R
-    R -->|"writeFileSync"| OUT["code_cards/front_template.html"]
+    %% Intermediate JavaScript strings.
+    common_js["common JS string"]
+    front_js["front JS string"]
+    injector["injectJavaScript()<br/>validate + replace"]
 
-    classDef in fill:#e1f5ff,stroke:#0288d1,color:#000;
-    classDef mid fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef out fill:#d4edda,stroke:#2e7d32,color:#000;
-    class COMMON,SPECIFIC,BASE in;
-    class JS1,JS2,R mid;
-    class OUT out;
+    %% Generated output.
+    front_output["code_cards/front_template.html"]
+
+    common_source -->|"transpileSource()"| common_js
+    front_source -->|"transpileSource()"| front_js
+    front_base --> injector
+    common_js -->|"fill %COMMON_JS%"| injector
+    front_js -->|"fill %TEMPLATE_JS%"| injector
+    injector -->|"writeFileSync"| front_output
+
+    classDef input fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef transform fill:#fff3cd,stroke:#f9a825,color:#000;
+    classDef output fill:#d4edda,stroke:#2e7d32,color:#000;
+
+    class common_source,front_source,front_base input;
+    class common_js,front_js,injector transform;
+    class front_output output;
 ```
 
 ## Why it works this way

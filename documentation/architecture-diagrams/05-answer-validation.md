@@ -7,28 +7,44 @@ cosmetic differences never mark a correct answer wrong. Implemented in
 
 ```mermaid
 flowchart TB
-    START(["revealAnswer(data)<br/>for each input on the card"]) --> HASNAME{"input has a<br/>name attribute?"}
-    HASNAME -->|no| SKIP["skip this input<br/>(no color, no change)"]
-    HASNAME -->|yes| EXPECTED["expected = parseInput(name)<br/>(the name IS the correct answer)"]
-    EXPECTED --> ACTUAL["raw = what the learner typed for this input<br/>(missing / untouched → empty string)"]
-    ACTUAL --> NORM["actual = parseInput(raw):<br/>curly quotes → straight quotes<br/>then strip ALL whitespace"]
-    NORM --> CMP{"actual === expected ?"}
-    CMP -->|yes| GREEN["backgroundColor = rgb(124,232,0)<br/>✅ correct (green)"]
-    CMP -->|no| RED["backgroundColor = rgb(240,128,128)<br/>❌ wrong (red)"]
-    GREEN --> SET["input.value = name (show true answer)<br/>fontWeight = bold"]
-    RED --> SET
+    start(["revealAnswer(data)<br/>for each input"])
+    has_name{"Input has<br/>a name?"}
+    skip_input["Skip input<br/>no color, no change"]
+    expected_value["expected = parseInput(name)<br/>name is the answer"]
+    learner_value["raw = learner value<br/>missing means empty string"]
+    normalized_value["actual = parseInput(raw)<br/>quotes fixed, whitespace stripped"]
+    is_correct{"actual === expected?"}
+    mark_correct["Mark green<br/>rgb(124,232,0)"]
+    mark_wrong["Mark red<br/>rgb(240,128,128)"]
+    show_answer["Show correct answer<br/>value = name, bold"]
+
+    %% Skip inert inputs.
+    start --> has_name
+    has_name -->|no| skip_input
+
+    %% Normalize before comparing.
+    has_name -->|yes| expected_value
+    expected_value --> learner_value
+    learner_value --> normalized_value
+    normalized_value --> is_correct
+
+    %% Both outcomes reveal the expected answer.
+    is_correct -->|yes| mark_correct
+    is_correct -->|no| mark_wrong
+    mark_correct --> show_answer
+    mark_wrong --> show_answer
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef proc fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
     classDef good fill:#d4edda,stroke:#2e7d32,color:#000;
     classDef bad fill:#f8d7da,stroke:#c62828,color:#000;
     classDef skip fill:#eceff1,stroke:#607d8b,color:#000;
 
-    class START entry;
-    class EXPECTED,ACTUAL,NORM,SET proc;
-    class GREEN good;
-    class RED bad;
-    class SKIP skip;
+    class start entry;
+    class expected_value,learner_value,normalized_value,show_answer process;
+    class mark_correct good;
+    class mark_wrong bad;
+    class skip_input skip;
 ```
 
 ## Normalization: `parseInput()`

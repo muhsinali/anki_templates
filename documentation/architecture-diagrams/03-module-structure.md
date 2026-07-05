@@ -17,40 +17,46 @@ is intentionally absent — it is hand-maintained, not produced by the build.)
 
 ```mermaid
 flowchart TB
-    COMMON["src/common.ts — shared<br/>displayTags · prettifyTag · setLinkText"]
+    shared_logic["src/common.ts<br/>shared helpers"]
 
-    subgraph frontside["Front side inputs"]
+    subgraph front_side["Front side inputs"]
         direction TB
-        FRONT["src/front_template.ts"]
-        FBASE["templates/front_template_base.html"]
+        front_logic["src/front_template.ts"]
+        front_base["templates/front_template_base.html"]
     end
 
-    subgraph backside["Back side inputs"]
+    subgraph back_side["Back side inputs"]
         direction TB
-        BACK["src/back_template.ts"]
-        BBASE["templates/back_template_base.html"]
+        back_logic["src/back_template.ts"]
+        back_base["templates/back_template_base.html"]
     end
 
-    BF["buildTemplate('front')"]
-    BB["buildTemplate('back')"]
-    OFRONT["code_cards/front_template.html"]
-    OBACK["code_cards/back_template.html"]
+    front_build["buildTemplate('front')"]
+    back_build["buildTemplate('back')"]
+    front_output["code_cards/front_template.html"]
+    back_output["code_cards/back_template.html"]
 
-    COMMON --> BF
-    COMMON --> BB
-    FRONT --> BF
-    FBASE --> BF
-    BACK --> BB
-    BBASE --> BB
-    BF --> OFRONT
-    BB --> OBACK
+    %% Shared helpers feed both generated cards.
+    shared_logic --> front_build
+    shared_logic --> back_build
 
-    classDef srcCls fill:#e1f5ff,stroke:#0288d1,color:#000;
-    classDef buildCls fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef outCls fill:#d4edda,stroke:#2e7d32,color:#000;
-    class COMMON,FRONT,FBASE,BACK,BBASE srcCls;
-    class BF,BB buildCls;
-    class OFRONT,OBACK outCls;
+    %% Side-specific inputs.
+    front_logic --> front_build
+    front_base --> front_build
+    back_logic --> back_build
+    back_base --> back_build
+
+    %% Generated Anki templates.
+    front_build --> front_output
+    back_build --> back_output
+
+    classDef source fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef build fill:#fff3cd,stroke:#f9a825,color:#000;
+    classDef output fill:#d4edda,stroke:#2e7d32,color:#000;
+
+    class shared_logic,front_logic,front_base,back_logic,back_base source;
+    class front_build,back_build build;
+    class front_output,back_output output;
 ```
 
 > The mechanics of a single `buildTemplate()` call (transpile + placeholder
@@ -66,56 +72,70 @@ builds the full templates in-memory and exercises them end-to-end.
 
 ```mermaid
 flowchart TB
-    subgraph src["src/ — runtime dependencies (one global scope)"]
+    subgraph source_files["src/ runtime files - one global scope"]
         direction TB
-        FRONT["front_template.ts<br/>storeInput · placeCursor · setInputAttributes<br/>setupHint · setupEnterKeyEvent · setupDOMContentLoaded<br/>initializeFrontTemplate()"]
-        BACK["back_template.ts<br/>parseInput · revealAnswer<br/>initializeBackTemplate()"]
-        COMMON["common.ts<br/>displayTags · prettifyTag · setLinkText"]
-        DTS["global.d.ts<br/>Window contract: data, pycmd<br/>(types only — nothing ships)"]
-        FRONT -->|calls| COMMON
-        BACK -->|calls| COMMON
+        front_module["front_template.ts<br/>front lifecycle + input sync"]
+        back_module["back_template.ts<br/>answer parsing + grading"]
+        common_module["common.ts<br/>tags + link chrome"]
+        global_types["global.d.ts<br/>Window types only"]
+
+        front_module -->|calls| common_module
+        back_module -->|calls| common_module
     end
 
-    BUILD["scripts/build-templates.ts<br/>transpileSource() · injectJavaScript()"]
-    HELPERS["tests/helpers.ts<br/>loadScripts() — transpile via the build, cache, eval"]
+    build_script["scripts/build-templates.ts<br/>transpile + inject"]
+    test_harness["tests/helpers.ts<br/>transpile, cache, eval"]
 
-    TFRONT["tests/front_template.test.ts"] -.tests.-> FRONT
-    TBACK["tests/back_template.test.ts"] -.tests.-> BACK
-    TCOMMON["tests/common.test.ts"] -.tests.-> COMMON
-    TPROP["tests/property.test.ts<br/>(fast-check invariants)"] -.tests.-> BACK
-    TPROP -.tests.-> COMMON
-    TBUILD["tests/build_templates.test.ts"] -.tests.-> BUILD
-    TINT["tests/integration.test.ts<br/>(full card lifecycle)"] -.builds & runs.-> BUILD
+    %% Unit and property tests target source modules.
+    front_tests["front_template.test.ts"] -.->|tests| front_module
+    back_tests["back_template.test.ts"] -.->|tests| back_module
+    common_tests["common.test.ts"] -.->|tests| common_module
+    property_tests["property.test.ts"] -.->|tests| back_module
+    property_tests -.->|tests| common_module
 
-    TFRONT --> HELPERS
-    TBACK --> HELPERS
-    TCOMMON --> HELPERS
-    TPROP --> HELPERS
-    HELPERS --> BUILD
+    %% Build and integration tests target the build path.
+    build_tests["build_templates.test.ts"] -.->|tests| build_script
+    integration_tests["integration.test.ts"] -.->|builds + runs| build_script
 
-    classDef srcCls fill:#e1f5ff,stroke:#0288d1,color:#000;
-    classDef buildCls fill:#fff3cd,stroke:#f9a825,color:#000;
-    classDef testCls fill:#fce4ec,stroke:#c2185b,color:#000;
-    classDef typeCls fill:#f5f5f5,stroke:#9e9e9e,color:#000;
-    class FRONT,BACK,COMMON srcCls;
-    class BUILD,HELPERS buildCls;
-    class TCOMMON,TFRONT,TBACK,TPROP,TBUILD,TINT testCls;
-    class DTS typeCls;
+    %% Most tests load source through the shared harness.
+    front_tests --> test_harness
+    back_tests --> test_harness
+    common_tests --> test_harness
+    property_tests --> test_harness
+    test_harness --> build_script
+
+    classDef source fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef build fill:#fff3cd,stroke:#f9a825,color:#000;
+    classDef test fill:#fce4ec,stroke:#c2185b,color:#000;
+    classDef types fill:#f5f5f5,stroke:#9e9e9e,color:#000;
+
+    class front_module,back_module,common_module source;
+    class build_script,test_harness build;
+    class common_tests,front_tests,back_tests,property_tests test;
+    class build_tests,integration_tests test;
+    class global_types types;
 ```
 
 ## How the pieces fit
 
-| Layer | Files | Role |
-|-------|-------|------|
-| **Shared logic** | `src/common.ts` | `displayTags`, `prettifyTag`, `setLinkText` — used by **both** card sides |
-| **Front logic** | `src/front_template.ts` | Captures input into `window.data`, focuses the field, wires Enter/hint |
-| **Back logic** | `src/back_template.ts` | Reads `window.data`, grades and recolors inputs |
-| **Base HTML** | `templates/*_template_base.html` | Layout + Anki field placeholders + `%COMMON_JS%` / `%TEMPLATE_JS%` slots |
-| **Build** | `scripts/build-templates.ts` | Transpiles + injects → writes `code_cards/*.html` |
-| **Output** | `code_cards/*.html`, `styling.css` | Pasted into Anki; HTML is generated, CSS is manual |
-| **Types** | `src/global.d.ts` | The `Window` contract (`data`, `pycmd`) — compile-time only |
-| **Test harness** | `tests/helpers.ts` | `loadScripts()`: transpile via the build's `transpileSource()`, cache, eval into jsdom |
-| **Tests** | `tests/*.test.ts` | Unit (one per `src/` file), build-script, property-based, and end-to-end lifecycle suites |
+- **Shared logic** (`src/common.ts`): `displayTags`, `prettifyTag`, and
+  `setLinkText`, used by both card sides.
+- **Front logic** (`src/front_template.ts`): captures input into `window.data`,
+  focuses the field, and wires Enter/hint behavior.
+- **Back logic** (`src/back_template.ts`): reads `window.data`, grades answers,
+  and recolors inputs.
+- **Base HTML** (`templates/*_template_base.html`): layout, Anki fields, and
+  `%COMMON_JS%` / `%TEMPLATE_JS%` slots.
+- **Build** (`scripts/build-templates.ts`): transpiles and injects JavaScript,
+  then writes `code_cards/*.html`.
+- **Output** (`code_cards/*.html`, `styling.css`): pasted into Anki; HTML is
+  generated, CSS is manual.
+- **Types** (`src/global.d.ts`): the `Window` contract (`data`, `pycmd`) at
+  compile time only.
+- **Test harness** (`tests/helpers.ts`): transpiles through the build's
+  `transpileSource()`, caches the result, and evals into jsdom.
+- **Tests** (`tests/*.test.ts`): unit, build-script, property-based, and
+  end-to-end lifecycle suites.
 
 ## Notes
 

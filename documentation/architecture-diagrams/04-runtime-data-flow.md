@@ -12,29 +12,34 @@ that is why the global exists at all.
 
 ```mermaid
 sequenceDiagram
-    actor User as Learner
+    autonumber
+
+    actor Learner
     participant Anki as Anki backend
     participant Front as Front card
     participant Data as window.data
     participant Back as Back card
 
+    %% Front card setup.
     Note over Front: initializeFrontTemplate() runs on load
-    Front->>Data: storeInput() — map of input name to current value
-    Front->>Front: setInputAttributes / placeCursor / setupHint
-    Front->>Front: displayTags(Tags) / setLinkText()
+    Front->>Data: storeInput() creates name -> value map
+    Front->>Front: prepare inputs, hint, Enter key, tags, link
 
-    User->>Front: types code into the answer fields
-    Front->>Data: 'input' listeners keep window.data in sync
+    %% Learner input is mirrored into window.data.
+    Learner->>Front: types code into answer fields
+    Front->>Data: input listeners keep values in sync
 
-    User->>Front: presses Enter
+    %% Anki flips to the Back card.
+    Learner->>Front: presses Enter
     Front->>Anki: pycmd("ans")
-    Anki->>Back: flip to Back (same webview — window.data persists)
+    Anki->>Back: flip to Back in the same webview
 
-    Note over Back: Back re-renders the Front field — inputs recreated empty
+    %% Back card grades against the saved global state.
+    Note over Back: Front field re-renders; inputs are recreated empty
     Note over Back: initializeBackTemplate() runs on load
     Back->>Data: read window.data
-    Back->>Back: revealAnswer(data) — normalize, compare, recolor
-    Back-->>User: green = correct, red = wrong, reveals expected answer
+    Back->>Back: revealAnswer(data) normalizes, compares, recolors
+    Back-->>Learner: green or red result, with expected answer shown
 ```
 
 ## Step by step
