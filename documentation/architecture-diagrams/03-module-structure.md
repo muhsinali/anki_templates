@@ -59,8 +59,10 @@ flowchart TB
 ## 3b · Code relationships (runtime deps + tests)
 
 Solid arrows are **runtime calls**; dotted arrows are **test targets**. Both
-card entry points call into the shared `common.ts` functions, and each test file
-exercises exactly one source file.
+card entry points call into the shared `common.ts` functions. The unit and
+property tests load sources through the shared harness (`tests/helpers.ts`),
+which transpiles via the build's own `transpileSource()`; the integration test
+builds the full templates in-memory and exercises them end-to-end.
 
 ```mermaid
 flowchart TB
@@ -69,18 +71,36 @@ flowchart TB
         FRONT["front_template.ts<br/>storeInput · placeCursor · setInputAttributes<br/>setupHint · setupEnterKeyEvent · setupDOMContentLoaded<br/>initializeFrontTemplate()"]
         BACK["back_template.ts<br/>parseInput · revealAnswer<br/>initializeBackTemplate()"]
         COMMON["common.ts<br/>displayTags · prettifyTag · setLinkText"]
+        DTS["global.d.ts<br/>Window contract: data, pycmd<br/>(types only — nothing ships)"]
         FRONT -->|calls| COMMON
         BACK -->|calls| COMMON
     end
 
+    BUILD["scripts/build-templates.ts<br/>transpileSource() · injectJavaScript()"]
+    HELPERS["tests/helpers.ts<br/>loadScripts() — transpile via the build, cache, eval"]
+
     TFRONT["tests/front_template.test.ts"] -.tests.-> FRONT
     TBACK["tests/back_template.test.ts"] -.tests.-> BACK
     TCOMMON["tests/common.test.ts"] -.tests.-> COMMON
+    TPROP["tests/property.test.ts<br/>(fast-check invariants)"] -.tests.-> BACK
+    TPROP -.tests.-> COMMON
+    TBUILD["tests/build_templates.test.ts"] -.tests.-> BUILD
+    TINT["tests/integration.test.ts<br/>(full card lifecycle)"] -.builds & runs.-> BUILD
+
+    TFRONT --> HELPERS
+    TBACK --> HELPERS
+    TCOMMON --> HELPERS
+    TPROP --> HELPERS
+    HELPERS --> BUILD
 
     classDef srcCls fill:#e1f5ff,stroke:#0288d1,color:#000;
+    classDef buildCls fill:#fff3cd,stroke:#f9a825,color:#000;
     classDef testCls fill:#fce4ec,stroke:#c2185b,color:#000;
+    classDef typeCls fill:#f5f5f5,stroke:#9e9e9e,color:#000;
     class FRONT,BACK,COMMON srcCls;
-    class TCOMMON,TFRONT,TBACK testCls;
+    class BUILD,HELPERS buildCls;
+    class TCOMMON,TFRONT,TBACK,TPROP,TBUILD,TINT testCls;
+    class DTS typeCls;
 ```
 
 ## How the pieces fit
@@ -93,7 +113,9 @@ flowchart TB
 | **Base HTML** | `templates/*_template_base.html` | Layout + Anki field placeholders + `%COMMON_JS%` / `%TEMPLATE_JS%` slots |
 | **Build** | `scripts/build-templates.ts` | Transpiles + injects → writes `code_cards/*.html` |
 | **Output** | `code_cards/*.html`, `styling.css` | Pasted into Anki; HTML is generated, CSS is manual |
-| **Tests** | `tests/*.test.ts` | One file per `src/` file; transpile + `eval` into jsdom, then assert |
+| **Types** | `src/global.d.ts` | The `Window` contract (`data`, `pycmd`) — compile-time only |
+| **Test harness** | `tests/helpers.ts` | `loadScripts()`: transpile via the build's `transpileSource()`, cache, eval into jsdom |
+| **Tests** | `tests/*.test.ts` | Unit (one per `src/` file), build-script, property-based, and end-to-end lifecycle suites |
 
 ## Notes
 
@@ -101,8 +123,10 @@ flowchart TB
   `module: none`, "depends on" simply means *its functions are defined in the
   same global scope first*. The build guarantees this by emitting `%COMMON_JS%`
   before `%TEMPLATE_JS%`.
-- **Tests mirror sources 1:1.** Each test re-transpiles the real `src/` file with
-  the same compiler settings as the build and `eval`s it into a jsdom `window`,
-  so tests exercise the exact code that ships.
+- **Tests load the exact code that ships.** The harness transpiles the real
+  `src/` files through the build's own `transpileSource()` (one home for the
+  compiler settings) and `eval`s them into a jsdom `window`. See
+  [`07-test-and-ci`](./07-test-and-ci.md) for the full test architecture and
+  the CI gate.
 - **`dist/` is unused by the build** — it only appears if you run
   `npx tsc` manually. The build never reads it.

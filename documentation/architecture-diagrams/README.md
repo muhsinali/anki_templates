@@ -18,10 +18,11 @@ in most Markdown viewers — no build step required.
 | 4 | [Runtime Data Flow (Front → Back)](./04-runtime-data-flow.md) | How the two card sides share state via `window.data` | Sequence |
 | 5 | [Answer Validation](./05-answer-validation.md) | How `revealAnswer()` grades and recolors each input | Flowchart |
 | 6 | [Card Initialization Lifecycles](./06-card-lifecycles.md) | What runs on load for the Front and Back cards | Flowchart |
+| 7 | [Test Architecture & CI Gate](./07-test-and-ci.md) | How tests exercise the shipped code, how coverage sees eval'd code, what CI blocks | Flowchart |
 
 ## Where to start
 
-- **New to the project?** Read them in order 1 → 6.
+- **New to the project?** Read them in order 1 → 7.
 - **"How is it built?"** → [2 · Build Pipeline](./02-build-pipeline.md).
 - **"How does grading actually work?"** → [4 · Runtime Data Flow](./04-runtime-data-flow.md)
   then [5 · Answer Validation](./05-answer-validation.md). This front-to-back
@@ -74,6 +75,8 @@ architecture changes. Relevant source of truth:
 - Build logic: [`scripts/build-templates.ts`](../../scripts/build-templates.ts)
 - Card logic: [`src/`](../../src) (`common.ts`, `front_template.ts`, `back_template.ts`)
 - Base HTML: [`templates/`](../../templates)
+- Tests & CI: [`tests/`](../../tests), [`jest.config.js`](../../jest.config.js),
+  [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 - Project overview & gotchas: [`CLAUDE.md`](../../CLAUDE.md) and [`BUILD.md`](../../BUILD.md)
 
 To preview a single diagram while editing, paste its ` ```mermaid ` block into

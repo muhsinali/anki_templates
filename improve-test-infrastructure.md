@@ -1,6 +1,16 @@
 # Improving the Test Infrastructure
 
-This is a step-by-step plan for upgrading the testing infrastructure of the Anki code
+> ✅ **This plan is fully executed** (2026-07-02 → 2026-07-05, PR #5). Every
+> step landed as its own single commit, worked red → green, with every gate
+> demonstrated to trip before being trusted. The [execution
+> record](#execution-record) below maps steps to commits, lists what was
+> found along the way, and records the few deliberate deviations. The rest of
+> the document is preserved as written — it is the reasoning behind the
+> result, and diagram
+> [07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md)
+> shows the architecture it produced.
+
+This was a step-by-step plan for upgrading the testing infrastructure of the Anki code
 cards project, based on a full read-through of the source, tests, build script,
 templates, configs, and docs. Steps are ordered by impact: each one either closes the
 biggest remaining risk or makes every later step cheaper.
@@ -20,6 +30,36 @@ post-merge tree, and every re-checkable claim was re-verified on it.
 It expands the testing items sketched in `improvement-plan.md` (items 8, 10, 11, 12,
 and parts of 17) into a single sequenced track. Where the two documents overlap, this
 one is the more detailed and current.
+
+---
+
+## Execution record
+
+All work landed on one branch (PR #5), one commit per step plus a review-pass
+commit and two follow-ups, each commit passing the full local gate (both
+type-checks, the whole suite with coverage thresholds, build + drift check,
+and — from step 7 on — the installed pre-commit hooks) before being pushed.
+
+| Step | Commit | Outcome |
+|------|--------|---------|
+| 1 · CI gate | `d0d189b` | Workflow live on push + PR; all four failure modes (type error, failing test, unregenerated `code_cards/`, broken build) demonstrated to trip. Drift gate enabled with no sync-up commit, as predicted |
+| Review pass | `f1d3e8d` | Post-steps-1–3 self-review: least-privilege workflow token, concurrency cancellation, fixed a doc claiming the build reads `tsconfig.json` |
+| 2 · Build-script tests | `5e17a09` | `transpileSource()` exported, diagnostics thrown (test seen red first), compiler settings single-sourced, template invariants pinned. Build byte-identical. 27 → 35 tests |
+| 3 · E2E lifecycle test | `86fb9e9` | Four scenarios (full journey incl. smart-quote grading, no-typing, back-without-front, no-hint); proven able to fail via four sabotages. 35 → 39 tests |
+| 4 · Shared harness | `0a166ad` | `tests/helpers.ts` + `loadScripts()`; polyfills deleted (suite stayed green); direct `initialize*()` tests (seen red under sabotage); `clearMocks`. **Found a real bug:** a test shadowed `document.readyState` non-configurably, silently disabling `placeCursor` for every later test in its file — fixed. 39 → 42 tests |
+| 5 · Real coverage | `9e08578` + `57b9d6d` | V8 + sourceURL recipe exactly as validated; `src/` 100% stmts, line-precise; ratchet (src ≥95, scripts floor) enforced in CI; gate tripped deliberately once. Follow-up: exclude `.d.ts` from collection — Node 24's V8 counts declaration files as 0% rows, Node 22's does not; **the CI matrix caught this** (local Node 22 green, CI Node 24 red) |
+| 6 · Types as a test layer | `b00d86b` | `src/global.d.ts` Window contract; `src/` cast-free with byte-identical emitted JS (no regeneration needed). **Deviation (upgrade):** tests call functions as bare typed globals instead of the sketched hand-synced accessor — the `src/` files are global scripts in the jest tsconfig program, so a rename or re-signature fails `tsc` (verified red both ways). `make typecheck`, `make check`, and a pre-commit hook, each seen to trip |
+| 7 · Dependency hygiene | `2cc8b7c` | Jest 30 + environment 30 (42/42 unmodified, as pre-validated); direct `jsdom` dropped; prettier **uninstalled** (the "decide" call — it formatted nothing); `private: true`; `engines` + `.nvmrc` |
+| 8 · Stretch (partial, by design) | `1d884d1` | fast-check property tests landed (6 tests: `parseInput` idempotence / no whitespace or curly quotes / quote-style-insensitive grading / identity on normalized input; `prettifyTag` never emits `::` or `_`, idempotent; both sabotages seen red). Stryker, Playwright, and the golden snapshot deliberately not done, per this plan's own criteria. Side effect: the pre-commit typecheck hook blocked fast-check's declarations until `tsconfig.jest.json` gained `skipLibCheck` (its `.d.ts` uses subpath type imports legacy `moduleResolution: "node"` cannot follow). 42 → 48 tests |
+| Docs & diagrams | `bbbce59` | New diagram `07-test-and-ci.md` (test architecture + CI gate, all Mermaid blocks render-validated); `03-module-structure` refreshed; indexes and cross-links updated |
+| Node 24 consolidation | `08eb1f0` | Post-plan decision: single supported line. Matrix → one Node 24 job; `engines: ">=24"`; `.nvmrc` 24; `@types/node` ^24; docs aligned. (The 22+24 matrix caught the `.d.ts` divergence before retiring) |
+
+**End state:** 48 tests across 6 suites (unit, build-script, property,
+integration) in ~1s; `src/` at 100% statements / 97.3% branches with
+thresholds enforced in CI; `scripts/` at 74.5% against a 60 floor; CI green
+on Node 24 for type-check ×2, tests + coverage, build, and the `code_cards/`
+drift gate; the same checks wired into pre-commit (type-check + tests) and
+`make check`.
 
 ---
 
@@ -62,9 +102,12 @@ every commit* — there is no speed/coverage trade-off to manage at this scale.
 
 ---
 
-## Where we are today
+## Where we were — the 2026-07-02 baseline
 
-Credit where due — several things are genuinely good and worth preserving:
+*(Historical snapshot. Every gap in the table below is now closed — see the
+[execution record](#execution-record) for what closed it.)*
+
+Credit where due — several things were genuinely good and worth preserving:
 
 - **Fidelity-first test pattern.** Tests transpile the real `src/` files with the same
   compiler settings as the build and `eval()` them into jsdom, so they exercise the
@@ -124,16 +167,16 @@ documentation debt stays at zero if it's paid per-change.
 
 ## The plan, in order
 
-| # | Step | Impact | Effort | Validated |
-|---|------|--------|--------|-----------|
-| 1 | Stand up a CI gate | Very high | Low | Commands verified locally; drift gate passes today |
-| 2 | Finish the build-script tests (⅔ landed in PR #4) | High | Low | Remaining bug reproduced; landed fixes re-verified |
-| 3 | Add an end-to-end card lifecycle test | High | Medium | Working prototype: 2 scenarios pass in ~0.5s |
-| 4 | Consolidate into one shared test harness | Medium | Low | Polyfill deletion verified against full suite |
-| 5 | Make coverage real, then enforce it | Medium–high | **Low** (was medium — the fix is proven) | V8 route verified with precise line attribution |
-| 6 | Make type-checking a first-class test layer | Medium | Low | `global.d.ts` + cast-free access compiles clean |
-| 7 | Dependency and config hygiene | Low–medium | Low | Jest 30 upgrade verified: 27/27 pass |
-| 8 | Stretch goals: mutation, property-based, real-browser | Optional | Varies | Not validated — genuinely exploratory |
+| # | Step | Impact | Effort | Validated | Status |
+|---|------|--------|--------|-----------|--------|
+| 1 | Stand up a CI gate | Very high | Low | Commands verified locally; drift gate passes today | ✅ `d0d189b` |
+| 2 | Finish the build-script tests (⅔ landed in PR #4) | High | Low | Remaining bug reproduced; landed fixes re-verified | ✅ `5e17a09` |
+| 3 | Add an end-to-end card lifecycle test | High | Medium | Working prototype: 2 scenarios pass in ~0.5s | ✅ `86fb9e9` |
+| 4 | Consolidate into one shared test harness | Medium | Low | Polyfill deletion verified against full suite | ✅ `0a166ad` |
+| 5 | Make coverage real, then enforce it | Medium–high | **Low** (was medium — the fix is proven) | V8 route verified with precise line attribution | ✅ `9e08578` + `57b9d6d` |
+| 6 | Make type-checking a first-class test layer | Medium | Low | `global.d.ts` + cast-free access compiles clean | ✅ `b00d86b` |
+| 7 | Dependency and config hygiene | Low–medium | Low | Jest 30 upgrade verified: 27/27 pass | ✅ `2cc8b7c` |
+| 8 | Stretch goals: mutation, property-based, real-browser | Optional | Varies | Not validated — genuinely exploratory | ◐ property tests only (`1d884d1`), rest skipped by design |
 
 The ordering logic: **step 1 makes every later step enforceable**. **Steps 2–3 close
 the two largest untested surfaces** — artifact generation and the core user journey.
@@ -143,7 +186,14 @@ the fundamentals hold.
 
 ---
 
-### Step 1 — Stand up a CI gate (GitHub Actions)
+### Step 1 — Stand up a CI gate (GitHub Actions) ✅
+
+> **Done — `d0d189b`.** All five workflow steps as specified; each of the four
+> failure modes demonstrated to trip (locally, since scratch-branch pushes
+> were out of scope for the single-commit-per-step constraint); badge added;
+> BUILD.md's aspirational CI section replaced with the real thing. Later
+> hardened in `f1d3e8d` (read-only token, concurrency cancellation) and
+> consolidated to a single Node 24 job in `08eb1f0`.
 
 **Why first.** Every other improvement only pays off if it runs on every change. Right
 now, tests run solely via an *optionally installed* pre-commit hook — a fresh clone, a
@@ -188,7 +238,13 @@ workflow; fix the stale "Node v18+" prerequisite; add the badge to README.md.
 
 ---
 
-### Step 2 — Finish the build-script tests (two-thirds landed in PR #4)
+### Step 2 — Finish the build-script tests (two-thirds landed in PR #4) ✅
+
+> **Done — `5e17a09`.** Exactly as specified: the diagnostics test was seen
+> red ("received function did not throw") before the fix; `transpileSource()`
+> is the single home of the compiler settings (the three eval-based test
+> files import it); the ordering/placeholder invariants are pinned; the
+> refactor left `npm run build` byte-identical under the committed-output net.
 
 **Why second.** `scripts/build-templates.ts` is the only code that produces the shipped
 artifact. When this review began it had zero tests and three verified silent-failure
@@ -243,7 +299,15 @@ exist in exactly one place; `npm run build` output is unchanged.
 
 ---
 
-### Step 3 — Add an end-to-end card lifecycle test
+### Step 3 — Add an end-to-end card lifecycle test ✅
+
+> **Done — `86fb9e9`.** Four scenarios (the plan's two plus
+> back-without-front and no-Hint), built through step 2's exports, flipped
+> exactly as Anki does. Proven able to fail four ways: sabotaged
+> `revealAnswer`, deleted placeholder, broken `storeInput`, removed
+> `window.data` assignment. The eval approach hit no fidelity wall, so the
+> `runScripts: "dangerously"` variant was never needed — which settled step
+> 7's jsdom decision as "drop it".
 
 **Why third.** Every existing test exercises one function against a hand-built DOM
 fragment. Nothing tests the system the way Anki uses it: rendered fields, scripts
@@ -311,7 +375,16 @@ not assumed.
 
 ---
 
-### Step 4 — Consolidate into one shared test harness
+### Step 4 — Consolidate into one shared test harness ✅
+
+> **Done — `0a166ad`.** `tests/helpers.ts` with cached `loadScripts()`;
+> polyfills deleted with the suite staying green (the inverted red/green, as
+> written); direct `initialize*()` tests added and seen red under sabotage;
+> the auto-init side effect **accepted** and documented rather than guarded;
+> `clearMocks: true` set. Bonus find: writing the initializer tests exposed a
+> pre-existing pollution bug — a non-configurable `document.readyState`
+> shadow that silently disabled `placeCursor`/`setInputAttributes` for every
+> later test in its file. Fixed.
 
 **Why fourth.** Steps 2–3 added new test files; before the suite grows further, stop
 paying the triplication tax. Mostly maintainability, with one genuine correctness fix:
@@ -351,7 +424,16 @@ have direct tests.
 
 ---
 
-### Step 5 — Make coverage real, then enforce it
+### Step 5 — Make coverage real, then enforce it ✅
+
+> **Done — `9e08578`, follow-up `57b9d6d`.** The recipe worked exactly as
+> validated: `src/` went from invisible to 100% statements / 97.3% branches,
+> line-precise. Ratchet set (src ≥ 95/90/95/95; a floor for `scripts/`), CI
+> runs `npm test -- --coverage`, and the gate was tripped deliberately once
+> before being trusted. One addition the validation pass couldn't have seen:
+> Node 24's V8 counts `.d.ts` files as 0% rows (Node 22's omits them), which
+> failed the ratchet in CI only — declaration files are now excluded from
+> collection. The Node matrix caught it; local runs could not have.
 
 **Why fifth — and why this is now a small step.** The eval-based pattern is what gives
 the tests their ship-code fidelity, and it is exactly why coverage reads 0%: Istanbul
@@ -416,7 +498,19 @@ drops below the ratchet; the gate has been seen to trip.
 
 ---
 
-### Step 6 — Make type-checking a first-class test layer
+### Step 6 — Make type-checking a first-class test layer ✅
+
+> **Done — `b00d86b`, with one deliberate upgrade.** `src/global.d.ts` landed
+> as specified and `src/` is cast-free with byte-identical emitted JS (no
+> `code_cards/` regeneration needed). The tests, however, do **not** use the
+> hand-synced typed accessor sketched below — a hand-maintained interface
+> would not notice a renamed `src/` function. Instead they call the functions
+> as bare typed globals: the `src/` files are global scripts inside
+> `tsconfig.jest.json`'s program, so their real declarations type the call
+> sites, and a rename or re-signature fails `tsc` (verified red both ways).
+> `make typecheck` + `make check` + the pre-commit hook all landed and were
+> each seen to trip. Only justified cast remaining:
+> `delete (document as any).readyState` in one test cleanup.
 
 **Why sixth.** The type-checker is the cheapest test suite we own — it passes clean
 today and runs in seconds — yet nothing executes it automatically until step 1's CI.
@@ -462,7 +556,15 @@ cannot reach a commit, let alone a merge.
 
 ---
 
-### Step 7 — Dependency and config hygiene
+### Step 7 — Dependency and config hygiene ✅
+
+> **Done — `2cc8b7c`.** Jest 30 upgrade clean (42/42 unmodified, thresholds
+> pass — `scripts/` coverage even reads higher under Jest 30's V8); direct
+> `jsdom` dropped (step 3 settled the decision); prettier **uninstalled**
+> (the "decide" call — wiring it can be revisited if contributors multiply);
+> `private: true`, `engines`, `.nvmrc` added. Superseded in part by the
+> post-plan Node 24 consolidation (`08eb1f0`): `engines` is now `">=24"`,
+> `.nvmrc` says 24, and `@types/node` is ^24.
 
 **Why seventh.** None of these block anything, but each is a small lie the toolchain
 tells: types that describe a Jest we don't run, a jsdom we don't use, a formatter that
@@ -499,7 +601,17 @@ gone; `npm ls jsdom` shows a single story; the suite passes on the upgraded stac
 
 ---
 
-### Step 8 — Stretch goals, once the fundamentals hold
+### Step 8 — Stretch goals, once the fundamentals hold ◐
+
+> **Partially done, by design — `1d884d1`.** The property-based tests landed
+> (six fast-check tests; both function sabotages seen red; they also forced
+> `skipLibCheck` into `tsconfig.jest.json`, since fast-check's declarations
+> use subpath type imports that legacy `moduleResolution: "node"` cannot
+> follow — a defect the new pre-commit typecheck hook caught in the act).
+> The other three items were deliberately **not** implemented, on this
+> section's own criteria: Stryker's interaction with the eval pattern is
+> unverified, Playwright waits for a jsdom-blind bug to actually bite, and a
+> golden snapshot duplicates CI's drift gate.
 
 None of these are required, and none have been validated — they are genuinely
 exploratory, in contrast to steps 1–7.
@@ -530,6 +642,13 @@ exploratory, in contrast to steps 1–7.
 
 ## Documentation to keep in sync
 
+*(All items below landed with their steps. Beyond this list, execution also
+produced a new architecture diagram —
+[07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md) —
+refreshed [03-module-structure](documentation/architecture-diagrams/03-module-structure.md),
+and updated the diagrams index and CLAUDE.md's documentation map to say
+seven diagrams.)*
+
 Each step above lists its own docs; this is the roll-up view:
 
 - **Step 1:** BUILD.md "CI/CD Considerations" → real workflow; Node prerequisite fix;
@@ -552,6 +671,12 @@ plans.
 ---
 
 ## Suggested sequencing
+
+*(As executed: the multi-PR split below was collapsed into a single branch —
+PR #5 — with one commit per step, which preserved the same reviewability
+per-change while keeping the whole track in one place. CI from step 1's
+commit guarded every later commit on the branch, serving the same purpose
+the PR split was designed for.)*
 
 - **PR 1:** Step 1 alone — small, self-contained, immediately protective.
 - **PR 2:** Step 2 remainder (diagnostics fix, `transpileSource` export, invariant
@@ -596,7 +721,23 @@ still green, Jest 30 still green. Rows below note where results changed.
 | `coverage/` not gitignored | Read `.gitignore`; observed stray dir after a `--coverage` run | Confirmed missing; added to step 5 |
 | Node 18/20 EOL (CI matrix correction) | Release calendar (18 EOL Apr 2025, 20 EOL Apr 2026) | Matrix corrected to 22 + 24 |
 
-**Still assumptions (not machine-verified):** the GitHub Actions workflow itself (can
-only be validated by pushing it — hence step 1's break-it branch); the structural
-Route B for coverage (not prototyped — deliberately demoted); Stryker's interaction
-with the eval pattern; the Playwright variant. Each is flagged in its step.
+### Execution-time findings (2026-07-02 → 2026-07-05)
+
+Things execution surfaced that the validation pass could not have:
+
+| Finding | How it surfaced | Resolution |
+|---------|-----------------|------------|
+| `document.readyState` shadowed non-configurably in one test, silently breaking `placeCursor`/`setInputAttributes` for every later test in the file | Step 4's new `initializeFrontTemplate` test failed on focus | Shadow made configurable and removed after the test (`0a166ad`) |
+| Node 24's V8 coverage counts `.d.ts` files as 0% rows; Node 22's omits them — the src/ ratchet failed on the Node 24 CI leg only | The 22+24 CI matrix (local Node 22 was green) | `.d.ts` excluded from `collectCoverageFrom` (`57b9d6d`) |
+| fast-check's declarations use subpath type imports that `moduleResolution: "node"` cannot resolve | The new pre-commit typecheck hook blocked the step 8 commit | `skipLibCheck: true` in `tsconfig.jest.json` (`1d884d1`) |
+| A hand-synced typed accessor (step 6's sketch) would not catch a renamed `src/` function | Design review while implementing step 6 | Bare typed globals via ambient global-script declarations instead — rename/re-signature fails `tsc` (`b00d86b`) |
+
+### Resolution of the remaining assumptions
+
+**Previously flagged as not machine-verified — now resolved:** the GitHub
+Actions workflow was validated by real runs, including one genuine failure it
+caught correctly (the `.d.ts` coverage divergence) and a green-on-both-legs
+history before consolidation to Node 24. **Still unexplored, by choice:** the
+structural Route B for coverage (moot — the V8 recipe works in production),
+Stryker's interaction with the eval pattern, and the Playwright variant
+(both parked per step 8's own criteria).

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# The workflow only reads the repo; don't hand it the default write token
+permissions:
+  contents: read
+
+# Cancel superseded runs of the same branch/PR (keyed by event so push and
+# pull_request runs don't cancel each other)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # Single supported line: Node 24 (current LTS), matching package.json's
+    # engines field and .nvmrc
+    name: Node 24
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check source (the build never type-checks)
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Type-check tests and scripts
+        run: npx tsc -p tsconfig.jest.json --noEmit
+
+      - name: Run tests (with enforced coverage thresholds)
+        run: npm test -- --coverage
+
+      - name: Build templates
+        run: npm run build
+
+      - name: Verify committed code_cards/ matches src/ (no drift)
+        run: git diff --exit-code code_cards/

@@ -10,9 +10,9 @@ This is an Anki flashcard template system that generates interactive code practi
 
 - `README.md` — User-facing: what the cards do, Anki setup, authoring cards, tagging/linking conventions
 - `BUILD.md` — Developer-facing: build/test workflow, extending the system, troubleshooting
-- `documentation/architecture-diagrams/` — Six hand-authored Mermaid diagrams (system context, build pipeline, module structure, runtime data flow, answer validation, card lifecycles). Update these when the architecture changes.
+- `documentation/architecture-diagrams/` — Seven hand-authored Mermaid diagrams (system context, build pipeline, module structure, runtime data flow, answer validation, card lifecycles, test architecture & CI gate). Update these when the architecture changes.
 - `improvement-plan.md` — Prioritized backlog of bugs, testing gaps, improvements, and housekeeping (scored by impact)
-- `improve-test-infrastructure.md` — Sequenced plan for the test infrastructure (CI, build tests, e2e test, coverage fix); claims machine-verified — see its validation log
+- `improve-test-infrastructure.md` — The (fully executed) test-infrastructure plan: CI, build tests, e2e test, coverage fix. Its execution record maps every step to its commit; kept as the reasoning behind the current test architecture
 
 ## Development Commands
 
@@ -31,7 +31,8 @@ A `Makefile` wraps these for convenience — run `make` alone to list targets:
 ```bash
 make build      # = npm run build
 make test       # = npm test
-make check      # test + build (run before committing)
+make typecheck  # tsc --noEmit for both tsconfigs
+make check      # typecheck + test + build (run before committing)
 ```
 
 ## Directory Structure
@@ -40,7 +41,8 @@ make check      # test + build (run before committing)
 ├── src/                           # TypeScript source files
 │   ├── common.ts                  # Shared: displayTags, prettifyTag, setLinkText
 │   ├── front_template.ts          # Front card: placeCursor, storeInput, setupHint, etc.
-│   └── back_template.ts           # Back card: parseInput, revealAnswer
+│   ├── back_template.ts           # Back card: parseInput, revealAnswer
+│   └── global.d.ts                # Window contract: window.data, window.pycmd
 ├── templates/                     # Base HTML with placeholders
 │   ├── front_template_base.html   # Contains %COMMON_JS% and %TEMPLATE_JS%
 │   └── back_template_base.html    # Re-renders {{Front}} (see Data Flow below)
@@ -52,7 +54,7 @@ make check      # test + build (run before committing)
 │   ├── back_template.html         # Generated - do not edit directly
 │   └── styling.css                # MANUALLY MAINTAINED - not generated
 ├── documentation/
-│   └── architecture-diagrams/     # Mermaid diagrams 01-06 + index README
+│   └── architecture-diagrams/     # Mermaid diagrams 01-07 + index README
 ├── Makefile                       # Dev shortcuts (make help / build / test / check)
 ├── BUILD.md                       # Build/test/troubleshooting guide
 └── dist/                          # Output of manual `npx tsc` only (gitignored, unused by build)
@@ -132,13 +134,16 @@ Templates use Anki's mustache-style field placeholders:
 
 ## Testing
 
-Tests use Jest (`ts-jest` preset, jsdom environment — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
+Tests use Jest (`ts-jest` preset, jsdom environment, `clearMocks` — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
 1. Sets `document.body.innerHTML`
-2. Transpiles the real `src/` files with the same compiler settings as the build (`module: none`, `target: ES2022`)
-3. `eval()`s the transpiled code to attach functions to `window` — so tests exercise the exact code that ships
-4. Tests functions via `(window as any).functionName()`
+2. Loads the real `src/` files with `loadScripts()` from `tests/helpers.ts`, which transpiles them via the build script's `transpileSource()` (same code path and compiler settings as the build — `module: none`, `target: ES2022`), caches per file, and `eval()`s them to attach functions to `window` — so tests exercise the exact code that ships. Eval'ing a template file also runs its trailing `initialize*()` call as a side effect, as in Anki.
+3. Calls the functions as **bare typed globals** (e.g. `storeInput()`, `revealAnswer(data)`): the `src/` files are global scripts in the jest tsconfig's program, so their declarations are ambient and fully typed in tests — renaming or re-signaturing a `src/` function breaks test compilation, not just the runtime. `window.data` / `window.pycmd` are typed via `src/global.d.ts`.
 
 Test files load `common.ts` before the template-specific file, mirroring the placeholder order in the built HTML.
+
+`tests/property.test.ts` adds property-based tests (fast-check) for the pure functions — `parseInput` idempotence and quote-style-insensitive grading, `prettifyTag` never emitting `::`/`_`.
+
+`tests/integration.test.ts` additionally tests the built templates end-to-end: it builds both sides in-memory via `transpileSource()` + `injectJavaScript()`, renders Anki fields with a small mustache substitute (applied everywhere, script included), loads the front (body set, extracted script eval'd — `innerHTML` never executes scripts), types and presses Enter against a `pycmd` mock, then flips as Anki does (same window, fresh DOM) and asserts the grading. Note: the built script's `"use strict"` keeps eval'd function declarations scoped to the eval rather than making them globals — intentional and fine, since only `window.data` must cross the flip and it is assigned to `window` explicitly. Don't "fix" this.
 
 ## Known Limitations & Gotchas
 
@@ -150,8 +155,8 @@ Test files load `common.ts` before the template-specific file, mirroring the pla
 6. **Hint classes differ per side**: front hint starts as `class="hidden"` (click to reveal); back hint is hard-coded `class="shown"`
 7. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
 8. **URL field**: Must paste with `Ctrl+Shift+V` (plain text) in Anki to avoid link formatting issues
-9. **Build does not type-check**: `ts.transpile()` skips type errors — run `npx tsc -p tsconfig.json --noEmit` to catch them
-10. **Coverage reports are blind**: `npm test -- --coverage` reports 0% for all `src/` files even with the whole suite passing — tests `eval()` transpiled source, which Jest's Istanbul instrumentation cannot see. A verified fix (V8 coverage provider + `sourceURL`) is specified in `improve-test-infrastructure.md` step 5.
+9. **Build does not type-check**: syntax errors fail the build (transpile diagnostics are checked), but type errors sail through — run `npx tsc -p tsconfig.json --noEmit` to catch them
+10. **Coverage requires the V8 provider**: `jest.config.js` sets `coverageProvider: 'v8'` and `tests/helpers.ts` transpiles with an inline source map + `file://` `sourceURL` so eval'd code is attributed to the real `src/` files. Do not switch back to Istanbul — it instruments at the transform stage and reports 0% for everything the eval-based tests exercise. Thresholds are enforced (`coverageThreshold`), and CI runs `npm test -- --coverage`.
 
 ## Styling Reference
 
@@ -171,6 +176,7 @@ Key CSS selectors in `code_cards/styling.css`:
 - End-of-file fixer
 - YAML/JSON validation
 - Line ending normalization (→ LF)
+- **TypeScript must type-check before commit** (both tsconfigs, `--noEmit`)
 - **Jest tests must pass before commit**
 
 Install with `pre-commit install`; run manually with `pre-commit run --all-files`.

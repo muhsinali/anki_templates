@@ -23,21 +23,47 @@ const COMMON_JS_PLACEHOLDER = "%COMMON_JS%";
 const TEMPLATE_JS_PLACEHOLDER = "%TEMPLATE_JS%";
 
 /**
- * Transpiles a TypeScript file to JavaScript
+ * Transpiles TypeScript source text to JavaScript
  *
- * @param filePath - Absolute path to the TypeScript file
+ * This is the single home of the build's compiler settings — tests import it
+ * so they can never drift from what the build actually produces.
+ *
+ * @param source - TypeScript source text
+ * @param fileName - Name used in error messages (typically the source path)
+ * @param overrides - Extra compiler options merged on top of the build
+ *                    settings. The build itself never passes any; the test
+ *                    harness adds inlineSourceMap so coverage can attribute
+ *                    eval'd code back to the .ts source.
  * @returns Transpiled JavaScript code as a string
+ * @throws When the source has syntax errors (ts.transpile would otherwise
+ *         silently emit mangled output and the build would report success)
  *
  * Configuration:
  * - module: None (no module system, functions attach to global scope)
  * - target: ES2022 (modern JavaScript with async/await, optional chaining, etc.)
  */
-function transpileTypeScript(filePath: string): string {
-  const source = readFileSync(filePath, "utf8");
-  return ts.transpile(source, {
+export function transpileSource(
+  source: string,
+  fileName: string,
+  overrides: ts.CompilerOptions = {},
+): string {
+  const diagnostics: ts.Diagnostic[] = [];
+  const transpiled = ts.transpile(source, {
     module: ts.ModuleKind.None,     // No module system - functions are global
     target: ts.ScriptTarget.ES2022, // Modern JavaScript features
-  });
+    ...overrides,
+  }, fileName, diagnostics);
+
+  if (diagnostics.length > 0) {
+    const details = ts.formatDiagnostics(diagnostics, {
+      getCanonicalFileName: (name) => name,
+      getCurrentDirectory: () => process.cwd(),
+      getNewLine: () => "\n",
+    });
+    throw new Error(`Failed to transpile ${fileName}:\n${details}`);
+  }
+
+  return transpiled;
 }
 
 function replacePlaceholder(
@@ -90,13 +116,13 @@ function buildTemplate(templateName: "front" | "back"): void {
   // Transpile common TypeScript functions shared between templates
   // These include: displayTags, prettifyTag, setLinkText
   const commonPath = join(process.cwd(), "src", "common.ts");
-  const commonJs = transpileTypeScript(commonPath);
+  const commonJs = transpileSource(readFileSync(commonPath, "utf8"), commonPath);
 
   // Transpile template-specific TypeScript functions
   // Front: placeCursor, setupEnterKeyEvent, storeInput, etc.
   // Back: parseInput, revealAnswer, etc.
   const templatePath = join(process.cwd(), "src", `${templateName}_template.ts`);
-  const templateJs = transpileTypeScript(templatePath);
+  const templateJs = transpileSource(readFileSync(templatePath, "utf8"), templatePath);
 
   // Replace placeholders in HTML template with transpiled JavaScript
   // %COMMON_JS% -> common functions (displayTags, prettifyTag, setLinkText)

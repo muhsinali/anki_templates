@@ -33,8 +33,8 @@ validated and replaced with literal JavaScript text. The diagram shows the
 
 ```mermaid
 flowchart LR
-    COMMON["src/common.ts"] -->|"ts.transpile()"| JS1["common JS string"]
-    SPECIFIC["src/front_template.ts"] -->|"ts.transpile()"| JS2["template JS string"]
+    COMMON["src/common.ts"] -->|"transpileSource()"| JS1["common JS string"]
+    SPECIFIC["src/front_template.ts"] -->|"transpileSource()"| JS2["template JS string"]
     BASE["templates/front_template_base.html<br/>contains %COMMON_JS% + %TEMPLATE_JS%"] --> R
 
     JS1 -->|"literal insert into %COMMON_JS%"| R["injectJavaScript(...)<br/>checked placeholder injection"]
@@ -51,12 +51,17 @@ flowchart LR
 
 ## Why it works this way
 
-- **`module: none`, `target: ES2022`** — `transpileTypeScript()` passes these to
+- **`module: none`, `target: ES2022`** — `transpileSource()` passes these to
   `ts.transpile()`. `module: none` means there is **no module wrapper**: every
   top-level `function` becomes a plain global. That is what lets the front card
   write `window.data` and the back card read it (see
   [`04-runtime-data-flow`](./04-runtime-data-flow.md)). Anki's webview does not
   support ES modules.
+- **`transpileSource()` is exported and shared with the tests** — it is the
+  single home of the compiler settings, and it checks the transpile
+  diagnostics: a syntax error in `src/` fails the build loudly instead of
+  emitting mangled JavaScript. (Type errors are still not checked — that is
+  `tsc --noEmit`'s job, run by CI.)
 - **Two placeholders, one order.** The base HTML always lays out
   `%COMMON_JS%` before `%TEMPLATE_JS%`, so common functions
   (`displayTags`, `prettifyTag`, `setLinkText`) are defined before the
