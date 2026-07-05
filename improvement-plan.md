@@ -1,448 +1,483 @@
 # Upgrade Plan for Code Cards
 
-This is a prioritized to-do list for improving the project, based on a full read-through
-of the source, templates, tests, build script, and styling. Each item gets a score from
-1 to 10 for how much impact fixing it would have. Bugs come first — there's no point
-polishing features while known defects can mark a correct answer wrong.
+Audited against `main` at `65c55c1` on 2026-07-05.
 
-Every item ends with two things on purpose:
+This is the current execution backlog for improving the Anki Code Cards
+template system. Older versions of this file predated PR #4 and PR #5; those
+changes landed the smart-quote grading fix, build hardening, CI, coverage,
+shared test helpers, an end-to-end lifecycle test, property tests, typed
+globals, and most dependency cleanup. Completed items are kept here because
+they explain the current shape of the code and prevent duplicate work.
 
-- **Tests to add** — so the fix stays fixed. The test suite should grow with every change.
-- **Docs to update** — so `CLAUDE.md`, `BUILD.md`, `README.md`, and the diagrams in
-  `documentation/architecture-diagrams/` never drift from reality.
+Status key:
+
+- **Done** means implemented in the current tree, with tests and docs updated.
+- **Partial** means the main cleanup landed, but a concrete follow-up remains.
+- **Open** means the current source still has the issue.
+
+Every new implementation step should finish the same way:
+
+- Add or update tests before trusting the change.
+- Run `make check` and, when generated templates are involved,
+  `git diff --exit-code code_cards/`.
+- Update `README.md`, `BUILD.md`, `CLAUDE.md`, and the relevant diagrams when
+  behavior, architecture, commands, or gotchas change.
 
 ## At a glance
 
-| # | What | Type | Score |
-|---|------|------|-------|
-| 1 | Smart quotes in the expected answer always grade as wrong | Bug | 9/10 |
-| 2 | The build can silently corrupt injected JavaScript | Bug | 8/10 |
-| 3 | `setLinkText()` renames the wrong link | Bug | 7/10 |
-| 4 | Enter-key listeners pile up as you review | Bug | 6/10 |
-| 5 | Answer inputs are still editable on the back of the card | Bug | 6/10 |
-| 6 | The back template is missing the mobile viewport tag | Bug | 4/10 |
-| 7 | Stale `window.data` can leak between cards | Bug | 3/10 |
-| 8 | Add a CI pipeline (GitHub Actions) | Testing | 8/10 |
-| 9 | Make the URL field work with plain-text paste | Improvement | 8/10 |
-| 10 | Add an end-to-end test of the built templates | Testing | 7/10 |
-| 11 | Share one test helper instead of three copies | Testing | 6/10 |
-| 12 | Give `window.data` and `pycmd` real types | Testing | 6/10 |
-| 13 | Support Anki's night mode | Improvement | 6/10 |
-| 14 | Show the learner what they typed, not just the answer | Improvement | 5/10 |
-| 15 | Don't rely on color alone for right/wrong | Improvement | 5/10 |
-| 16 | Sort tags alphabetically, not by ASCII | Improvement | 4/10 |
-| 17 | Tidy up the dev dependencies | Housekeeping | 3/10 |
-| 18 | Sort out the `_editor_button_styles.css` import | Housekeeping | 3/10 |
-| 19 | Retire the unused `dist/` output | Housekeeping | 2/10 |
+| # | What | Type | Score | Status |
+|---|------|------|-------|--------|
+| 1 | Smart quotes in the expected answer always grade as wrong | Bug | 9/10 | Done |
+| 2 | The build can silently corrupt or mangle injected JavaScript | Bug | 8/10 | Done |
+| 3 | `setLinkText()` renames the wrong link | Bug | 7/10 | Open |
+| 4 | Enter-key listeners pile up as you review | Bug | 6/10 | Open |
+| 5 | Answer inputs are still editable on the back of the card | Bug | 6/10 | Open |
+| 6 | The back template is missing the mobile viewport tag | Bug | 4/10 | Open |
+| 7 | Stale `window.data` can leak between cards | Bug | 4/10 | Open |
+| 8 | Add a CI pipeline | Testing | 8/10 | Done |
+| 9 | Make the URL field work with plain-text paste | Improvement | 8/10 | Open |
+| 10 | Add an end-to-end test of the built templates | Testing | 7/10 | Done |
+| 11 | Share one test helper instead of three copies | Testing | 6/10 | Done |
+| 12 | Give `window.data` and `pycmd` real types | Testing | 6/10 | Done |
+| 13 | Support Anki's night mode | Improvement | 6/10 | Open |
+| 14 | Show the learner what they typed, not just the answer | Improvement | 5/10 | Open |
+| 15 | Do not rely on color alone for right/wrong | Improvement | 5/10 | Open |
+| 16 | Sort tags alphabetically, not by ASCII | Improvement | 4/10 | Open |
+| 17 | Finish dependency, Node, and lockfile hygiene | Housekeeping | 4/10 | Partial |
+| 18 | Sort out the `_editor_button_styles.css` import | Housekeeping | 3/10 | Open |
+| 19 | Retire the unused `dist/` output | Housekeeping | 2/10 | Open |
+| 20 | Protect `main` with the CI status check | Operations | 6/10 | Open |
 
 ---
 
-## Bugs — fix these first
+## Completed work
 
-### 1. Smart quotes in the expected answer always grade as wrong — 9/10
+### 1. Smart quotes in the expected answer always grade as wrong - 9/10
 
-**What's happening.** `revealAnswer()` in `src/back_template.ts` normalizes the *learner's*
-input with `parseInput()` (curly quotes → straight quotes, whitespace stripped), but the
-*expected* answer — the input's `name` attribute — only gets its whitespace stripped:
+**Status: Done.** `revealAnswer()` now runs `parseInput()` on both sides of the
+comparison:
 
 ```ts
-const expected = trueAnswer.replace(/\s+/g, "");   // no quote normalization!
-const actual = parseInput(data[inputName] ?? "");  // fully normalized
+const expected = parseInput(trueAnswer);
+const actual = parseInput(data[inputName] ?? "");
 ```
 
-**Why it matters.** If a card author's `name` attribute ever contains curly quotes —
-which happens easily when pasting from a website, or when an editor "helpfully" converts
-them — the two sides can never match. The learner types the right answer with straight
-quotes and gets marked wrong every single time, with no clue why.
+**Evidence in the current tree.** `tests/back_template.test.ts` covers straight
+vs curly quotes in both directions, `tests/property.test.ts` pins quote-style
+insensitivity as a property, and `tests/integration.test.ts` covers the same
+bug class through the full front -> flip -> back lifecycle. `CLAUDE.md` and
+`documentation/architecture-diagrams/05-answer-validation.md` now document the
+symmetrical normalization.
 
-**The fix.** One line: run `parseInput()` on both sides.
-`const expected = parseInput(trueAnswer);`
+### 2. The build can silently corrupt or mangle injected JavaScript - 8/10
 
-**Tests to add.** A `revealAnswer` case where the `name` contains curly quotes and the
-typed answer uses straight ones (should be green), plus the reverse. Also extend the
-`parseInput` tests with backticks and non-breaking spaces while you're in there.
+**Status: Done.** `scripts/build-templates.ts` now:
 
-**Docs to update.** The normalization table in
-`documentation/architecture-diagrams/05-answer-validation.md` currently *documents* this
-asymmetry ("the expected value only has whitespace stripped") — rewrite that section.
-Also the "Answer Validation System" bullet in `CLAUDE.md`.
+- exports `transpileSource()` as the single home of the build compiler settings;
+- throws on transpile diagnostics instead of emitting broken JavaScript;
+- validates required placeholders before injection;
+- uses replacer callbacks so `$$`, `$&`, `` $` ``, and `$'` survive injection
+  literally;
+- exposes `injectJavaScript()` for direct tests.
 
-### 2. The build can silently corrupt injected JavaScript — 8/10
+**Evidence in the current tree.** `tests/build_templates.test.ts` covers
+syntax-diagnostic failures, placeholder validation, placeholder ordering, and
+literal replacement-looking JavaScript. The build pipeline docs and `BUILD.md`
+describe the new behavior.
 
-**What's happening.** `scripts/build-templates.ts` injects transpiled JS with
-`baseTemplate.replace("%COMMON_JS%", commonJs)`. When the replacement argument is a
-*string*, JavaScript treats `$$`, `$&`, `` $` ``, and `$'` as special substitution
-patterns. This is verified, not theoretical: injecting code containing `"$$"` produces
-`"$"` in the output, and `"$&"` becomes the literal text `%COMMON_JS%`.
+### 8. Add a CI pipeline - 8/10
 
-**Why it matters.** Today's source code happens to contain no `$` patterns, so nothing is
-broken *yet*. But the first time someone writes `"$$"` in a string, or code that looks
-like a replacement pattern, the build will quietly ship corrupted JavaScript into Anki.
-There's also no guard for a missing placeholder — if `%COMMON_JS%` gets renamed or
-deleted from a base template, `replace()` does nothing and the build "succeeds" with no
-script inside.
+**Status: Done in code; see item 20 for the required GitHub settings follow-up.**
+`.github/workflows/ci.yml` runs on push and pull request with Node 24:
+`npm ci`, pre-commit, both TypeScript checks, Jest with coverage thresholds,
+`npm run build`, and a `git diff --exit-code code_cards/` drift gate.
 
-**The fix.** Use a replacer function, which takes the replacement literally:
-`baseTemplate.replace("%COMMON_JS%", () => commonJs)`. And before replacing, throw a
-clear error if the placeholder isn't found in the base template.
+**Evidence in the current tree.** README has the CI badge, `BUILD.md` documents
+the workflow, and `documentation/architecture-diagrams/07-test-and-ci.md`
+diagrams the test/CI gate.
 
-**Tests to add.** The build script has zero tests right now. Refactor `buildTemplate()`
-so its core (transpile + inject) is callable with in-memory strings, then test: JS
-containing `$$`/`$&` survives injection byte-for-byte, and a template missing a
-placeholder throws. This also creates the home for future build tests.
+### 10. Add an end-to-end test of the built templates - 7/10
 
-**Docs to update.** `BUILD.md`'s "What the build does NOT do" and troubleshooting
-sections; the pipeline notes in
-`documentation/architecture-diagrams/02-build-pipeline.md`.
+**Status: Done.** `tests/integration.test.ts` builds both templates in memory
+through the real build functions, substitutes Anki fields, loads the front,
+types into inputs, simulates Enter, flips to the back in the same window, and
+asserts grading, hints, tags, and URL anchor text.
 
-### 3. `setLinkText()` renames the wrong link — 7/10
+**Remaining note.** When item 6 is fixed, add viewport assertions to either the
+build-template tests or the integration suite so both base/built templates stay
+mobile-consistent.
 
-**What's happening.** `setLinkText()` in `src/common.ts` does
-`document.querySelector("a")` — the first `<a>` *anywhere on the card* — and renames its
-text to "Link".
+### 11. Share one test helper instead of three copies - 6/10
 
-**Why it matters.** The function is meant for the URL field's link in `#url_container`.
-But if the card's question text contains a hyperlink (perfectly normal for a flashcard),
-*that* link gets its text stomped to "Link" instead, and the actual URL link is left
-alone. Confusing for authors and learners alike.
+**Status: Done.** `tests/helpers.ts` provides `loadScripts()`, caches
+transpilation, imports the build's `transpileSource()`, and appends source maps
+and `sourceURL` for V8 coverage. Direct tests now cover both initializers.
 
-**The fix.** Scope the selector: `document.querySelector("#url_container a")`.
+**Accepted tradeoff.** Loading a template script still runs its trailing
+`initialize*()` call as a side effect, because that mirrors the shipped Anki
+script behavior. The docs call this out so future tests account for it.
 
-**Tests to add.** One test with an anchor in the card content *and* one in
-`#url_container` (only the latter should be renamed), and one with an anchor only in the
-content (nothing should change).
+### 12. Give `window.data` and `pycmd` real types - 6/10
 
-**Docs to update.** The `setLinkText` description in `CLAUDE.md` and the "shared chrome"
-table in `documentation/architecture-diagrams/06-card-lifecycles.md`.
-
-### 4. Enter-key listeners pile up as you review — 6/10
-
-**What's happening.** `setupEnterKeyEvent()` adds a `keydown` listener to `document`
-every time a front card renders — and never removes it. Anki's reviewer keeps the same
-page alive across the whole session (that's the very mechanism `window.data` relies on),
-so after reviewing 50 cards you have 50 identical listeners, each calling
-`preventDefault()` and `pycmd("ans")` on every keypress.
-
-**Why it matters.** It's a slow leak with duplicate side effects. It mostly gets away
-with it because the calls are idempotent, but it's fragile — and the same pattern will
-bite harder if any future listener *isn't* idempotent.
-
-**The fix.** Guard it: set a flag like `window._enterKeyBound` and only attach the
-listener the first time. While there, consider ignoring `event.isComposing` so IME users
-(Japanese, Chinese, Korean input) don't fire the answer on composition-confirm.
-
-**Tests to add.** Call `setupEnterKeyEvent()` twice, dispatch one Enter keydown, assert
-`pycmd` was called exactly once. Add a test that a composing Enter does nothing.
-
-**Docs to update.** `CLAUDE.md` gotchas (the iPhone note lives there too) and
-`documentation/architecture-diagrams/06-card-lifecycles.md`.
-
-### 5. Answer inputs are still editable on the back of the card — 6/10
-
-**What's happening.** `revealAnswer()` recolors each input and overwrites its value
-with the correct answer, but the inputs stay fully editable.
-
-**Why it matters.** On the answer side you can tap an input by accident and start
-"editing" the revealed answer — on mobile the keyboard pops up over the card. Nothing
-breaks, but it feels broken.
-
-**The fix.** Add `input.readOnly = true;` inside `revealAnswer()`.
-
-**Tests to add.** Extend the existing `revealAnswer` tests to assert `readOnly` is set
-on named inputs (and *not* on skipped, unnamed ones).
-
-**Docs to update.** `documentation/architecture-diagrams/05-answer-validation.md`
-("Consequences of this design" list) and the `revealAnswer` line in `CLAUDE.md`.
-
-### 6. The back template is missing the mobile viewport tag — 4/10
-
-**What's happening.** `templates/front_template_base.html` starts with a `<meta
-name="viewport">` tag that stops mobile browsers zooming onto the focused input. The
-back template doesn't have it.
-
-**Why it matters.** Flipping the card on a phone can change the zoom behavior
-mid-review. Small, but it's a one-line inconsistency between two files that should
-mirror each other.
-
-**The fix.** Copy the same meta tag to the top of `templates/back_template_base.html`
-and rebuild.
-
-**Tests to add.** This is exactly the kind of thing the end-to-end test in item 10
-should assert: both built files contain the viewport tag.
-
-**Docs to update.** None beyond regenerating `code_cards/` — but mention it in the
-commit message so the diff makes sense.
-
-### 7. Stale `window.data` can leak between cards — 3/10
-
-**What's happening.** `window.data` is never cleared. If a back side ever renders
-without its own front having run first (previewing a card from the browser, undo,
-editing mid-review), `initializeBackTemplate()` happily grades against whatever the
-*previous* card stored.
-
-**Why it matters.** In normal review flow the front always runs first and overwrites the
-global, so this is rare — that's why the score is low. But when it does happen, the
-grading is quietly nonsense.
-
-**The fix.** Needs a little care: clearing `window.data` after grading breaks re-renders
-of the same back side (night-mode toggle, window resize). A safer route is tagging the
-data with a card identifier, e.g. storing `{ values, cardMark }` where the mark comes
-from a hidden element rendering `{{Front}}`'s hash — or simply documenting the edge case
-and accepting it. Decide when you get there; don't fix it blind.
-
-**Tests to add.** Simulate the edge: populate `window.data` with keys that don't match
-the back's inputs and assert every input grades red (current behavior), then encode
-whatever behavior you choose.
-
-**Docs to update.** `documentation/architecture-diagrams/04-runtime-data-flow.md`
-already explains the flip mechanics — add the edge case there and to `CLAUDE.md`
-gotchas.
+**Status: Done.** `src/global.d.ts` declares the shared `Window` contract, the
+source no longer needs `(window as any)` for `data` or `pycmd`, and both
+pre-commit and CI run type-checks.
 
 ---
 
-## Testing and tooling
+## Open bugs - fix these first
 
-### 8. Add a CI pipeline (GitHub Actions) — 8/10
+### 3. `setLinkText()` renames the wrong link - 7/10
 
-**What's missing.** There is no CI at all — `.github/` only holds images. Tests run on
-whoever remembered to install pre-commit, and nothing stops a PR that breaks the build.
+**What's happening.** `setLinkText()` in `src/common.ts` still does
+`document.querySelector("a")`, so it renames the first link anywhere on the
+card. If the card prompt contains a link before the URL field, the prompt link
+is changed to `"Link"` and the URL field is left alone.
 
-**What to do.** One workflow file, four steps: `npm ci`, `npx tsc -p tsconfig.json
---noEmit` (the build doesn't type-check, so CI must), `npm test`, `npm run build`
-followed by `git diff --exit-code code_cards/`. That last step is the quiet hero: it
-fails the build if someone edits `src/` but forgets to regenerate the committed HTML,
-which is currently an honour-system rule.
+**Fix with item 9.** Replace the current broad helper with URL-container scoped
+behavior:
 
-**Tests to add.** This item *is* the testing infrastructure. Turn on coverage reporting
-in the same workflow (`npm test -- --coverage`) so coverage becomes visible on every PR
-before you decide whether to enforce thresholds.
+- only look inside `#url_container`;
+- if `#url_container a` already exists, set that anchor text to `"Link"` and
+  leave its `href` intact;
+- if no URL-container anchor exists, do nothing here and let item 9 create one
+  from plain text;
+- never touch anchors in `{{Front}}`, `{{Back}}`, or hints.
 
-**Docs to update.** Replace the aspirational "CI/CD Considerations" section in
-`BUILD.md` with a description of the real workflow. Add a status badge to `README.md`.
+**Tests to add.** In `tests/common.test.ts`: one anchor in card content plus one
+inside `#url_container` (only the latter changes), content-only anchor (nothing
+changes), empty/missing URL container (no throw). Update the integration fixture
+to include a prompt link so the lifecycle test guards the bug at system level.
 
-### 9. Make the URL field work with plain-text paste — 8/10
+**Docs to update.** `CLAUDE.md` key function list and gotcha #8,
+`BUILD.md` source-function table if renamed, and the shared-chrome section in
+`documentation/architecture-diagrams/06-card-lifecycles.md`.
 
-**What's happening.** The `{{URL}}` field renders into `#url_container` as-is, and
-`setLinkText()` only renames an `<a>` that already exists. So the officially documented
-workflow — paste the URL as plain text with `Ctrl+Shift+V` — produces inert text, not a
-clickable link. The README's whole "Linking" section is a workaround for this.
+### 4. Enter-key listeners pile up as you review - 6/10
 
-**Why it matters.** This is the most confusing part of the project for card authors
-(the README needs three paragraphs and a warning to explain it). Fixing it properly
-deletes a footgun.
+**What's happening.** `setupEnterKeyEvent()` adds a document-level `keydown`
+listener every time the front template initializes and never removes or guards
+it. Anki keeps the reviewer webview alive across cards, so repeated reviews can
+accumulate duplicate handlers.
 
-**The fix.** In `common.ts`, read `#url_container`'s text content; if it looks like a
-URL, replace the container's content with a real `<a href="...">Link</a>`. If it already
-contains an anchor, just rename it (current behavior). Then both paste styles work and
-the README instructions shrink to one line.
+**Why it matters.** Today the duplicate side effect is mostly idempotent
+(`preventDefault()` plus `pycmd("ans")`), but it is still a leak and makes future
+keyboard behavior fragile. It can also complicate tests that load the front more
+than once in the same jsdom window.
 
-**Tests to add.** Three cases: container holds a raw URL (anchor gets created), holds an
-anchor (text renamed, href untouched), holds junk/empty (nothing happens). This item
-depends on item 3's scoped selector — do them together.
+**The fix.** Add a typed guard on `window`, for example
+`enterKeyHandlerBound?: boolean`, and attach the listener only once per webview.
+While there, ignore `event.isComposing` so IME composition confirmation
+(Japanese, Chinese, Korean input, etc.) does not reveal the answer.
 
-**Docs to update.** Rewrite `README.md`'s "Linking" section (it can lose the
-`Ctrl+Shift+V` warning), update `CLAUDE.md`'s function list and gotcha #8, and the
-shared-chrome table in `06-card-lifecycles.md`.
+**Tests to add.** Calling `setupEnterKeyEvent()` twice then dispatching one
+Enter should call `pycmd("ans")` exactly once. A composing Enter should do
+nothing. Keep the existing direct handler test, but add a real `document`
+dispatch test because the bug is listener accumulation.
 
-### 10. Add an end-to-end test of the built templates — 7/10
+**Docs to update.** `CLAUDE.md` gotchas and
+`documentation/architecture-diagrams/06-card-lifecycles.md`.
 
-**What's missing.** Every existing test transpiles `src/*.ts` directly. Nothing ever
-tests the *built* files in `code_cards/` — the placeholder substitution, the script
-ordering, the interaction between front and back. A broken base template would sail
-through the whole suite.
+### 5. Answer inputs are still editable on the back of the card - 6/10
 
-**What to do.** One integration test that: runs the real build (or reads the committed
-output), substitutes the Anki fields (`{{Front}}`, `{{Tags}}`, …) with fixture content
-the way Anki would, loads the result into jsdom, types into an input, simulates the
-flip by evaluating the back template into the same window, and asserts the green/red
-grading end to end. This is the single test that exercises the system the way Anki
-actually uses it.
+**What's happening.** `revealAnswer()` colors and bolds each answer input, then
+overwrites its value with the expected answer, but the input remains editable.
 
-**Tests to add.** That's the item. Put it in `tests/integration.test.ts` so the unit /
-integration split is obvious.
+**Why it matters.** On mobile, tapping the revealed answer can summon the
+keyboard over the answer side. Nothing is being saved, so it feels broken even
+though the grade is already decided.
 
-**Docs to update.** The testing sections of `BUILD.md` and `CLAUDE.md` (both currently
-describe the transpile-and-eval unit pattern as the whole story).
+**The fix.** Set `input.readOnly = true` for every named input processed by
+`revealAnswer()`. Leave unnamed/skipped inputs untouched.
 
-### 11. Share one test helper instead of three copies — 6/10
+**Tests to add.** Extend the `revealAnswer` tests to assert named inputs become
+read-only and unnamed inputs do not. The end-to-end lifecycle test should assert
+back-side inputs are read-only after grading.
 
-**What's happening.** All three test files carry a near-identical `setupDom()` that
-reads a source file, transpiles it, and `eval()`s it — plus the same
-TextEncoder/TextDecoder polyfill boilerplate. Each call re-transpiles from scratch.
-There's also a subtle smell: evaluating `front_template.ts` *runs*
-`initializeFrontTemplate()` as a side effect in every test, attaching document-level
-listeners the tests never asked for.
+**Docs to update.** `CLAUDE.md` `revealAnswer` description and
+`documentation/architecture-diagrams/05-answer-validation.md`.
 
-**What to do.** Extract `tests/helpers.ts` with a single `loadScripts(...files)` that
-caches transpilation per file (the sources don't change mid-run), and move the polyfills
-into a Jest setup file (`setupFilesAfterEach`/`setupFiles` in `jest.config.js`). While
-there, consider guarding the auto-init in the sources (e.g. skip when a test flag is
-set) so tests opt *in* to initialization instead of getting it as a side effect.
+### 6. The back template is missing the mobile viewport tag - 4/10
 
-**Tests to add.** This makes every future test cheaper to write — and add the missing
-direct tests for `initializeFrontTemplate()` / `initializeBackTemplate()`, which
-currently only run by accident.
+**What's happening.** `templates/front_template_base.html` and
+`code_cards/front_template.html` include the mobile viewport tag. The back base
+template and generated back template do not.
 
-**Docs to update.** The "Test Architecture" section in `BUILD.md` and the testing notes
-in `CLAUDE.md`.
+**Why it matters.** Mobile zoom behavior can change after the card flips,
+especially around focused or recently focused inputs.
 
-### 12. Give `window.data` and `pycmd` real types — 6/10
+**The fix.** Copy the same viewport meta tag to the top of
+`templates/back_template_base.html`, then rebuild `code_cards/back_template.html`.
 
-**What's happening.** Every touch of the shared state goes through `(window as any)` —
-the one piece of the system that front and back must agree on is the one piece with no
-type checking.
+**Tests to add.** Add a base-template invariant in
+`tests/build_templates.test.ts` that both base templates include the viewport
+meta tag exactly once, or add a lifecycle/integration assertion against both
+built outputs.
 
-**What to do.** Add a `src/global.d.ts`:
+**Docs to update.** Usually no prose beyond the plan/commit message, unless the
+mobile behavior is called out somewhere new.
+
+### 7. Stale `window.data` can leak between cards - 4/10
+
+**What's happening.** The back initializer now safely skips grading when
+`window.data` is missing, and the integration suite covers that. The remaining
+edge is stale-but-present data: if a back side renders without its matching
+front pass after a previous card, `initializeBackTemplate()` will grade using
+old values.
+
+**Why it matters.** Normal review flow overwrites `window.data` on the front, so
+this is uncommon. It can still happen in preview, undo, editing mid-review, or
+other reviewer edge flows. If the stale data has matching input names, the
+result could even look falsely correct.
+
+**The fix.** Do not blindly clear `window.data` after grading; that can break a
+back-side re-render. Prefer a versioned payload:
 
 ```ts
-interface Window {
-  data?: Record<string, string>;
-  pycmd?: (command: string) => void;
+interface CardInputData {
+  values: Record<string, string>;
+  inputNames: string[];
+  cardKey?: string;
 }
 ```
 
-Then delete the `as any` casts. Wire `make typecheck` into pre-commit and CI so it
-actually runs (the build itself only strips types — it will never catch a type error).
+At minimum, store the ordered input-name signature on the front and refuse to
+grade on the back if the recreated inputs do not match it. If Anki exposes a
+stable card/note identifier that can be rendered into both sides, store and
+check that as `cardKey`; otherwise document that same-shape cards can only be
+fully solved with an Anki-provided identity.
 
-**Tests to add.** The type-check *is* the test — make it a required CI step. The
-existing runtime tests confirm nothing regresses.
+**Tests to add.** Back without front remains ungraded; stale data with different
+input names is refused; same input names across a re-render of the same back
+still grade. If a `cardKey` is available, add a mismatch test for it.
 
-**Docs to update.** `CLAUDE.md` (critical settings + commands) and `BUILD.md` ("What the
-build does NOT do" gets a happier ending).
+**Docs to update.** `src/global.d.ts`, `CLAUDE.md` data-flow section,
+`documentation/architecture-diagrams/04-runtime-data-flow.md`, and
+`06-card-lifecycles.md`.
 
 ---
 
 ## User-facing improvements
 
-### 13. Support Anki's night mode — 6/10
+### 9. Make the URL field work with plain-text paste - 8/10
 
-**What's happening.** The styling assumes a light card: gray `#CCCCCC` code blocks,
-pale blue hints, and grading colors picked against white. Anki's night mode adds a
-`.nightMode` class to `.card`, and this template ignores it entirely.
+**What's happening.** `{{URL}}` renders directly into `#url_container`.
+`setLinkText()` only renames an anchor that already exists. That means a raw
+plain-text URL in the field is inert text, despite the README telling authors
+to paste the URL as plain text.
 
-**What to do.** Add `.card.nightMode` overrides in `code_cards/styling.css` for the code
-block, hint box, tag/URL text, and input fields; check the green/red grading colors
-still read against a dark background (they're set inline in JS, so either choose shades
-that work on both, or set a class instead of an inline style and let CSS decide —
-the class route is cleaner and more testable).
+**Why it matters.** The current linking instructions are both confusing and
+wrong for the current implementation: formatted/anchor URLs are the ones the
+code can rename, while raw URLs are the workflow the docs recommend.
 
-**Tests to add.** If grading moves from inline styles to classes (`input.correct` /
-`input.wrong`), the `revealAnswer` tests get *simpler* — assert a class instead of an
-rgb string. That refactor is worth it for testability alone.
+**The fix.** Do this with item 3. Introduce a URL-container helper, for example
+`renderUrlField()`:
 
-**Docs to update.** The Styling Reference in `CLAUDE.md`, the styling notes in
-`BUILD.md`, and the color meanings in `05-answer-validation.md`.
+- find `#url_container`;
+- if it contains an anchor, set the anchor text to `"Link"`;
+- otherwise read trimmed text content and, when it is an `http://` or
+  `https://` URL, replace the container contents with an `<a>` whose `href` is
+  that URL and whose text is `"Link"`;
+- use DOM APIs and `textContent`, not HTML string concatenation;
+- leave junk/empty values untouched.
 
-### 14. Show the learner what they typed, not just the answer — 5/10
+**Tests to add.** URL container with raw `https://...` creates an anchor; raw
+`http://...` also works; existing anchor is renamed without changing `href`;
+empty/junk text does nothing; prompt links outside `#url_container` are
+untouched. Add an integration scenario where the fixture URL is plain text, not
+an anchor.
 
-**What's happening.** `revealAnswer()` overwrites the input's value with the correct
-answer. If you got it wrong, your attempt is gone — you can't compare what you typed
-against what was expected, which is half the learning.
+**Docs to update.** Rewrite README's Linking section. Update `CLAUDE.md`,
+`BUILD.md` if the helper is renamed, and
+`documentation/architecture-diagrams/06-card-lifecycles.md`.
 
-**What to do.** Keep the correct answer in the input (that behavior is good), but
-preserve the attempt somewhere visible for wrong answers — a `title` tooltip is the
-zero-layout-risk option; a small struck-through span after the input is the more
-readable one. Worth a quick experiment on a real phone before committing.
+### 13. Support Anki's night mode - 6/10
 
-**Tests to add.** Wrong answer → attempt is preserved in whatever form you choose;
-correct answer → no clutter appears.
+**What's happening.** `code_cards/styling.css` assumes a light background:
+gray code blocks, pale blue hints, light link color, and inline green/red
+grading backgrounds. Anki night mode adds `.nightMode` to `.card`; the stylesheet
+does not handle it.
 
-**Docs to update.** `README.md` features list, `05-answer-validation.md`, and the
-`revealAnswer` description in `CLAUDE.md`.
+**The fix.** Add `.card.nightMode` styles for the card, code block, hint, tags,
+URL link, and inputs. Pair this with item 15 by moving grading from inline
+colors to CSS classes such as `.answer-correct` and `.answer-wrong`, allowing
+night-mode-specific colors and non-color indicators.
 
-### 15. Don't rely on color alone for right/wrong — 5/10
+**Tests to add.** `revealAnswer` tests should assert classes instead of exact
+RGB strings. Add class-specific assertions for correct/wrong inputs and keep an
+integration assertion that the shipped lifecycle applies those classes. CSS
+visual contrast still needs a manual Anki/night-mode check.
 
-**What's happening.** Green background = correct, red = wrong — and that's the only
-signal. For color-blind learners (roughly 1 in 12 men), those two backgrounds can be
-nearly indistinguishable.
+**Docs to update.** README feature list, `CLAUDE.md` styling reference,
+`BUILD.md` styling notes, and
+`documentation/architecture-diagrams/05-answer-validation.md`.
 
-**What to do.** Add a second channel: a ✓/✗ mark after the input, or distinct border
-styles — plus `aria-label="correct"/"incorrect"` for screen readers. Pairs naturally
-with item 13's move from inline colors to classes; do them together.
+### 14. Show the learner what they typed, not just the answer - 5/10
 
-**Tests to add.** `revealAnswer` tests assert the mark/label as well as the class.
+**What's happening.** `revealAnswer()` overwrites each input's value with the
+correct answer. For wrong answers, the learner loses the attempt and cannot
+compare what they typed against what was expected.
 
-**Docs to update.** `README.md` features, `05-answer-validation.md` color legend, and
-the color bullets in `CLAUDE.md`.
+**The fix.** Keep the expected answer in the input, but preserve the learner's
+attempt for wrong answers. A small text node or span after the input is more
+readable than a title-only tooltip, as long as it is inserted with
+`textContent`, is styled compactly, and is not duplicated if grading runs twice.
 
-### 16. Sort tags alphabetically, not by ASCII — 4/10
+**Tests to add.** Wrong answer shows the attempt; correct answer does not add
+extra clutter; malicious-looking input is displayed as text, not HTML; a second
+`revealAnswer()` call does not duplicate the attempt UI.
 
-**What's happening.** `displayTags()` uses plain `.sort()`, which puts every
-uppercase letter before every lowercase one: `Computing - AI, a c, b a`. The README
-promises "alphabetical order"; ASCII order is what it actually delivers.
+**Docs to update.** README features, `CLAUDE.md` `revealAnswer` description, and
+`documentation/architecture-diagrams/05-answer-validation.md`.
 
-**What to do.** `sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))`.
+### 15. Do not rely on color alone for right/wrong - 5/10
 
-**Tests to add.** The existing `displayTags` test *encodes the bug* (it expects
-`Computing - AI` before `a c`) — update it and add a mixed-case case. A test that has to
-change is a good sign here, not a bad one.
+**What's happening.** Green background means correct and red background means
+wrong. That is the only signal.
 
-**Docs to update.** The `displayTags` line in `CLAUDE.md`; the README's tagging section
-becomes true as written.
+**The fix.** Add a second channel: visible "Correct"/"Incorrect" markers, an
+icon-like mark, distinct border styles, and/or `aria-label`/`aria-describedby`
+for screen readers. This pairs naturally with item 13's move from inline styles
+to classes and item 14's attempt display.
+
+**Tests to add.** `revealAnswer` tests assert the class plus the non-color
+marker/label for correct and wrong answers. Integration should assert at least
+one correct and one wrong marker in a mixed-answer fixture.
+
+**Docs to update.** README features, `CLAUDE.md`, and
+`documentation/architecture-diagrams/05-answer-validation.md`.
+
+### 16. Sort tags alphabetically, not by ASCII - 4/10
+
+**What's happening.** `displayTags()` still uses plain `.sort()`, which sorts by
+code point. Uppercase tags come before lowercase tags, so the README's
+"alphabetical order" promise is not quite true.
+
+**The fix.**
+
+```ts
+tags
+  .map(prettifyTag)
+  .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+  .join(", ");
+```
+
+**Tests to add.** Update the existing `displayTags` test that currently encodes
+the ASCII order, and add a mixed-case test. Keep the integration test stable by
+choosing fixture tags whose order is unambiguous.
+
+**Docs to update.** The `displayTags` line in `CLAUDE.md`. README's tagging
+section should then be true as written.
 
 ---
 
-## Housekeeping
+## Housekeeping and operations
 
-### 17. Tidy up the dev dependencies — 3/10
+### 17. Finish dependency, Node, and lockfile hygiene - 4/10
 
-**What's happening.** Three oddities in `package.json`: `@types/jest` is on v30 while
-`jest` is on v29 (types describing APIs the runtime doesn't have); a direct `jsdom@26`
-dependency that nothing uses (Jest bundles its own `jsdom@20` via
-`jest-environment-jsdom` — verified with `npm ls jsdom`); and `prettier` is installed
-but wired to nothing.
+**Status: Partial.** The big cleanup landed: Jest and `@types/jest` are on v30,
+the direct `jsdom` dependency was removed (it now arrives through
+`jest-environment-jsdom`), Prettier was removed, `private: true` exists, `.nvmrc`
+is `24`, and `ts-jest@29.4.0` advertises peer support for Jest 30.
 
-**What to do.** Pin `@types/jest` to `^29`, drop the direct `jsdom`, and either add a
-`format` script + pre-commit hook for prettier or remove it. Small diff, less confusion
-about what the test environment actually is.
+**What's still wrong.**
 
-**Tests to add.** The whole suite passing after the cleanup is the test. Run
-`make check` before and after.
+- The local install is stale: `npm ls` currently exits non-zero because
+  `node_modules/@types/node` is `22.15.32` while `package.json` requires
+  `^24.13.2`.
+- `package.json` says `"node": "24.x"` while the root metadata in
+  `package-lock.json` says `">=24"`.
+- Local execution during this audit used Node `v26.4.0`, which is outside the
+  strict `24.x` engine declared by `package.json`, even though tests and
+  type-checks passed.
 
-**Docs to update.** `BUILD.md` prerequisites/test-architecture if anything
-user-visible changes.
+**The fix.** Choose one Node policy and make every file agree. If the project
+really supports only Node 24, use `24.x` consistently in `package.json`,
+`package-lock.json`, `.nvmrc`, CI, README, BUILD, and CLAUDE. If Node 24+ is the
+policy, use `>=24` consistently and update the docs. Then refresh the lockfile
+and local install with the chosen Node version so `npm ci`, `npm ls`, and
+`make check` are all clean.
 
-### 18. Sort out the `_editor_button_styles.css` import — 3/10
+**Tests to add.** No new unit tests. Verification is `npm ci`, `npm ls`,
+`make check`, and the existing CI job.
 
-**What's happening.** The first line of `code_cards/styling.css` imports
-`_editor_button_styles.css`, a file that lives only in the author's personal Anki media
-collection. For everyone else the import 404s silently.
+**Docs to update.** README development prerequisites, `BUILD.md` prerequisites,
+`CLAUDE.md` commands/gotchas, and `improve-test-infrastructure.md` if its
+execution record keeps mentioning the opposite Node policy.
 
-**What to do.** Either commit that file to the repo (if its contents matter to the
-cards) or delete the import and keep it as a purely personal add-on documented in the
-README. Right now it's a mystery dependency.
+### 18. Sort out the `_editor_button_styles.css` import - 3/10
 
-**Tests to add.** Item 10's integration test can assert the built cards don't depend on
-files outside the repo.
+**What's happening.** `code_cards/styling.css` still starts with
+`@import url("_editor_button_styles.css")`, a file that is not in this repo and
+only exists in the author's personal Anki media collection.
 
-**Docs to update.** Gotcha #5 in `CLAUDE.md` and the note in `BUILD.md` either shrink or
-disappear — which is the point.
+**Why it matters.** Every other user gets a silent missing-file request in Anki.
+The docs explain the gotcha, but the better default is no hidden personal
+dependency.
 
-### 19. Retire the unused `dist/` output — 2/10
+**The fix.** Prefer deleting the import unless its contents are required for the
+cards. If those styles matter, commit the CSS file and document how users copy
+it into Anki media. Either way, make the repo self-explanatory.
 
-**What's happening.** `tsconfig.json` declares `outDir: dist`, so a stray `npx tsc`
-emits files nothing reads. The real build transpiles in memory.
+**Tests to add.** Add a lightweight assertion that `styling.css` does not import
+missing local files, or cover this through an integration/static asset test if a
+CSS test home already exists by then.
 
-**What to do.** Add `"noEmit": true` to `tsconfig.json`, delete the `outDir` line, and
-remove `dist` from `.gitignore` and the docs. One less thing to explain.
+**Docs to update.** Remove or rewrite the CSS-import gotchas in `CLAUDE.md`,
+`BUILD.md`, and `documentation/architecture-diagrams/01-system-context.md`.
 
-**Tests to add.** None needed — `make check` still passing covers it.
+### 19. Retire the unused `dist/` output - 2/10
 
-**Docs to update.** The directory tree in `CLAUDE.md` and the `npx tsc` mentions in
-`BUILD.md` / `README.md`.
+**What's happening.** `tsconfig.json` still declares `"outDir": "dist"`, so a
+plain `npx tsc` can emit files that the project never reads. The real build
+transpiles in memory and writes only `code_cards/*.html`.
+
+**The fix.** Add `"noEmit": true` to `tsconfig.json`, remove `"outDir": "dist"`,
+and delete `dist` references from `.gitignore`, `Makefile clean`, `CLAUDE.md`,
+`BUILD.md`, and `documentation/architecture-diagrams/03-module-structure.md`.
+Keep using explicit `--noEmit` in commands if desired; the config should make
+the safe behavior the default.
+
+**Tests to add.** No runtime tests. Verification is both type-check commands and
+`make check`.
+
+**Docs to update.** The directory tree in `CLAUDE.md`, the Make target table in
+`BUILD.md`, and the module-structure diagram notes.
+
+### 20. Protect `main` with the CI status check - 6/10
+
+**What's missing.** CI exists, but a workflow only blocks merges if GitHub branch
+protection requires it. That setting is outside the repository files and cannot
+be verified from the current checkout.
+
+**What to do.** In GitHub repository settings, protect `main` and require the
+`Node 24` status check from the `CI` workflow. Also require branches to be up to
+date before merging so the green check applies to the PR head.
+
+**Tests to add.** This is operational, not a code test. Verification is a small
+test PR or repository settings/API check showing `main` requires the `Node 24`
+CI status.
+
+**Docs to update.** `BUILD.md` already mentions this; update it only if the
+required check name changes.
 
 ---
 
 ## Suggested order of attack
 
-1. **Quick wins pass (items 1, 3, 5, 6):** four small, safe fixes with tests — one PR.
-2. **Build hardening (item 2) + CI (item 8):** make the pipeline trustworthy before
-   changing anything bigger.
-3. **Testing foundations (items 10, 11, 12):** the e2e test and shared helpers make
-   every later change cheaper and safer.
-4. **The URL fix (item 9) and listener guard (item 4):** behavior changes, now caught
-   by the new tests.
-5. **Polish (items 13–16), then housekeeping (17–19)** whenever there's a spare moment.
+1. **Quick behavior fixes:** item 6 (back viewport), item 5 (read-only back
+   inputs), and item 16 (locale tag sorting). These are small and have obvious
+   tests.
+2. **URL/link pass:** items 3 and 9 together. They share the same helper and
+   docs; doing them separately would create churn.
+3. **Keyboard/state safety:** item 4, then item 7. The listener guard is simple;
+   stale `window.data` needs a deliberate payload shape and docs.
+4. **Answer UX/accessibility:** items 13, 15, and 14 together if possible,
+   because classes, night mode, non-color markers, and attempt display all touch
+   `revealAnswer()` and the same CSS.
+5. **Housekeeping and operations:** items 17, 18, 19, and 20. Keep these in
+   separate commits from learner-visible behavior changes.
 
-After each step: run `make check`, regenerate `code_cards/`, and update the docs listed
-in the item — the documentation debt stays at zero if it's paid per-change.
+The plan is now in a good state to execute: the testing foundation is already
+strong enough to support the remaining behavior changes, and the highest-risk
+old items are either fixed or clearly separated from the still-open work.
