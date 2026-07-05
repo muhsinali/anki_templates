@@ -169,6 +169,24 @@ describe("card lifecycle", () => {
     );
   });
 
+  test("a prototype-clashing input name stores, survives the flip, and grades", () => {
+    const fields = {
+      ...FIELDS,
+      Front: '<input name="__proto__" style="width: 20ch;">',
+    };
+
+    loadCard(renderFields(builtFront, fields));
+    const frontInputs = document.querySelectorAll("input");
+    expect(frontInputs).toHaveLength(1);
+    typeInto(frontInputs[0], "__proto__");
+
+    loadCard(renderFields(builtBack, fields));
+
+    const backInput = document.querySelector("input");
+    expect(backInput?.classList.contains("answer-correct")).toBe(true);
+    expect(backInput?.value).toBe("__proto__");
+  });
+
   test("a card without a Hint field renders no hint box on either side", () => {
     const fields = { ...FIELDS, Hint: "" };
 

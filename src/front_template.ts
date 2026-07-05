@@ -57,7 +57,10 @@ function setupHint(): void {
 }
 
 function storeInput(): CardInputData {
-  const data: CardInputData = { values: {}, inputNames: [] };
+  // Null prototype so prototype-clashing input names ("__proto__",
+  // "constructor") store and read back as plain own properties.
+  const values: Record<string, string> = Object.create(null);
+  const data: CardInputData = { values, inputNames: [] };
   getInputs().forEach((input) => rememberInput(data, input));
   return data;
 }

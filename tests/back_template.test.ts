@@ -92,6 +92,18 @@ describe("Back Template Functions", () => {
       expect(document.querySelectorAll(".answer-feedback")).toHaveLength(1);
     });
 
+    test("grades prototype-clashing names from the front's null-prototype store", () => {
+      setupDom('<input name="__proto__">');
+      const data: Record<string, string> = Object.create(null);
+      data["__proto__"] = "__proto__";
+
+      revealAnswer(data);
+
+      const input = firstInput();
+      expect(input.classList.contains("answer-correct")).toBe(true);
+      expect(input.value).toBe("__proto__");
+    });
+
     test("preserves wrong attempts as text and does not duplicate feedback", () => {
       const html = `<input name="A">`;
       setupDom(html);
@@ -135,6 +147,38 @@ describe("Back Template Functions", () => {
       const input = firstInput();
       expect(input.className).toBe("");
       expect(input.value).toBe("");
+    });
+
+    test("skips grading when window.data has a stale pre-upgrade shape", () => {
+      setupDom('<input name="A"><div id="content_tag_left"></div>');
+      // What an older front template (or any other webview script) may have
+      // left behind — assigned via eval so no type cast is needed
+      window.eval('window.data = { A: "A" };');
+
+      expect(() => initializeBackTemplate()).not.toThrow();
+      expect(firstInput().className).toBe("");
+      // The rest of the back still initializes
+      expect(document.getElementById("content_tag_left")?.textContent).toBe(
+        "{{Tags}}",
+      );
+    });
+
+    test("skips grading when window.data is missing its values object", () => {
+      setupDom('<input name="A">');
+      window.eval('window.data = { inputNames: ["A"] };');
+
+      expect(() => initializeBackTemplate()).not.toThrow();
+      expect(firstInput().className).toBe("");
+    });
+
+    test("grades non-string stored values as empty attempts instead of crashing", () => {
+      setupDom('<input name="A">');
+      window.eval('window.data = { values: { A: 42 }, inputNames: ["A"] };');
+
+      expect(() => initializeBackTemplate()).not.toThrow();
+      const input = firstInput();
+      expect(input.classList.contains("answer-wrong")).toBe(true);
+      expect(input.value).toBe("A");
     });
 
     test("skips grading when window.data is missing, without throwing", () => {
