@@ -17,17 +17,15 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # Maintained LTS lines (Node 18/20 are past end-of-life)
-        node-version: [22, 24]
-    name: Node ${{ matrix.node-version }}
+    # Single supported line: Node 24 (current LTS), matching package.json's
+    # engines field and .nvmrc
+    name: Node 24
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24
           cache: npm
 
       - name: Install dependencies

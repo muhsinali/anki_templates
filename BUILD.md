@@ -9,8 +9,8 @@ This document explains how to build, test, and extend the Anki template system.
 
 ## Prerequisites
 
-- Node.js (v22+ — CI runs on Node 22 and 24, the maintained LTS lines;
-  `.nvmrc` pins 22 and `package.json`'s `engines` field enforces `>=22`)
+- Node.js (v24+, the current LTS — CI runs on Node 24; `.nvmrc` pins 24 and
+  `package.json`'s `engines` field enforces `>=24`)
 - npm
 - [pre-commit](https://pre-commit.com/) (optional — only needed for the git hooks)
 
@@ -389,7 +389,7 @@ pre-commit run --all-files  # Run all hooks manually
 ## Continuous Integration
 
 Every push and pull request runs the CI workflow
-(`.github/workflows/ci.yml`) on Node 22 and 24:
+(`.github/workflows/ci.yml`) on Node 24:
 
 ```bash
 npm ci                             # Clean install from package-lock.json

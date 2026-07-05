@@ -11,9 +11,12 @@
 > sketched accessor (a hand-synced accessor would not notice a rename — the
 > ambient declarations do); `tsconfig.jest.json` gained `skipLibCheck` because
 > fast-check's declarations use subpath type imports that legacy
-> `moduleResolution: "node"` cannot follow. Current state: 48 tests across 6
-> suites, `src/` at 100% statement coverage (enforced ≥95), CI green on Node
-> 22 and 24, type-check + tests wired into pre-commit, and diagram
+> `moduleResolution: "node"` cannot follow. After the plan completed, support
+> was consolidated on Node 24 only (the 22+24 matrix had caught the `.d.ts`
+> divergence, but the maintainer opted for a single supported line: CI,
+> `engines: ">=24"`, and `.nvmrc` now all say 24). Current state: 48 tests
+> across 6 suites, `src/` at 100% statement coverage (enforced ≥95), CI green
+> on Node 24, type-check + tests wired into pre-commit, and diagram
 > [07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md)
 > documents the result.
 

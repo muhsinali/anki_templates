@@ -69,9 +69,9 @@ Two non-obvious mechanics, documented so nobody "fixes" them:
 
 ## 7b · The CI gate
 
-Runs on every push and pull request, on Node 22 and 24 (a matrix that has
-already paid for itself: Node 24's V8 counts `.d.ts` files in coverage,
-Node 22's does not). A PR cannot merge green if any step fails.
+Runs on every push and pull request, on Node 24 — the current LTS and the
+project's single supported line (`engines: ">=24"`, `.nvmrc`). A PR cannot
+merge green if any step fails.
 
 ```mermaid
 flowchart TB
