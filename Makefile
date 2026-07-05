@@ -4,7 +4,7 @@
 # exact incantations. Run `make` on its own to see what's available.
 
 .DEFAULT_GOAL := help
-.PHONY: help install build test coverage check hooks clean
+.PHONY: help install build test coverage typecheck check hooks clean
 
 help: ## Show this help
 	@echo "Code Cards for Anki — make targets:"
@@ -23,7 +23,11 @@ test: ## Run the Jest test suite
 coverage: ## Run tests with a coverage report
 	npm test -- --coverage
 
-check: test build ## Everything a commit should pass: tests, build
+typecheck: ## Type-check src/, tests/, and scripts/ (the build never type-checks)
+	npx tsc -p tsconfig.json --noEmit
+	npx tsc -p tsconfig.jest.json --noEmit
+
+check: typecheck test build ## Everything a commit should pass: types, tests, build
 	@echo "All checks passed."
 
 hooks: ## Install the pre-commit git hooks

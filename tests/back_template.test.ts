@@ -1,31 +1,11 @@
 // Unit tests for back_template.ts functions
-import { TextEncoder, TextDecoder } from "util";
-(global as any).TextEncoder = TextEncoder;
-(global as any).TextDecoder = TextDecoder;
+import { loadScripts } from "./helpers";
 
-import { readFileSync } from "fs";
-import { join } from "path";
-import * as ts from "typescript";
-
-// Helper to set up DOM and load back_template.ts into the existing jsdom window
+// Set up DOM and load back_template.ts (common.ts first, mirroring the
+// %COMMON_JS% → %TEMPLATE_JS% order in the built HTML)
 function setupDom(html: string = "") {
   document.body.innerHTML = html;
-
-  // Load common.ts functions first
-  const commonSource = readFileSync(join(process.cwd(), "src", "common.ts"), "utf8");
-  const commonTranspiled = ts.transpile(commonSource, {
-    module: ts.ModuleKind.None,
-    target: ts.ScriptTarget.ES2022,
-  });
-  (window as any).eval(commonTranspiled);
-
-  // Then load back_template.ts functions
-  const backSource = readFileSync(join(process.cwd(), "src", "back_template.ts"), "utf8");
-  const backTranspiled = ts.transpile(backSource, {
-    module: ts.ModuleKind.None,
-    target: ts.ScriptTarget.ES2022,
-  });
-  (window as any).eval(backTranspiled);
+  loadScripts("common.ts", "back_template.ts");
 }
 
 describe("Back Template Functions", () => {
@@ -33,17 +13,17 @@ describe("Back Template Functions", () => {
     test("normalizes quotes and removes whitespace", () => {
       setupDom();
       const input = " “hello” \n  ‘world’ ";
-      expect((window as any).parseInput(input)).toBe('"hello"\'world\'');
+      expect(parseInput(input)).toBe('"hello"\'world\'');
     });
 
     test("leaves backticks untouched", () => {
       setupDom();
-      expect((window as any).parseInput("`template ${x}`")).toBe("`template${x}`");
+      expect(parseInput("`template ${x}`")).toBe("`template${x}`");
     });
 
     test("strips non-breaking spaces", () => {
       setupDom();
-      expect((window as any).parseInput("git\u00A0reset\u00A0--hard")).toBe("gitreset--hard");
+      expect(parseInput("git\u00A0reset\u00A0--hard")).toBe("gitreset--hard");
     });
   });
 
@@ -55,7 +35,7 @@ describe("Back Template Functions", () => {
 
     test("colors inputs and sets values correctly", () => {
       const data = { "A B": " A B ", C: "c" };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const inputs = document.querySelectorAll("input");
       // first input should be marked correct
@@ -73,7 +53,7 @@ describe("Back Template Functions", () => {
       const html = `<input name="print(“hi”)">`;
       setupDom(html);
       const data = { "print(“hi”)": 'print("hi")' };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const input = document.querySelector("input")!;
       expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
@@ -84,7 +64,7 @@ describe("Back Template Functions", () => {
       const html = `<input name="print('hi')">`;
       setupDom(html);
       const data = { "print('hi')": "print(‘hi’)" };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const input = document.querySelector("input")!;
       expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
@@ -95,13 +75,40 @@ describe("Back Template Functions", () => {
       const html = `<input name="A"><input>`;
       setupDom(html);
       const data = { A: "A" };
-      (window as any).revealAnswer(data);
+      revealAnswer(data);
 
       const inputs = document.querySelectorAll("input");
       // first input with name should be processed
       expect(inputs[0].style.backgroundColor).toBe("rgb(124, 232, 0)");
       // second input without name should be skipped (no background color set)
       expect(inputs[1].style.backgroundColor).toBe("");
+    });
+  });
+
+  describe("initializeBackTemplate", () => {
+    afterEach(() => {
+      delete window.data;
+    });
+
+    test("grades the inputs from window.data when the front stored it", () => {
+      setupDom('<input name="A"><div id="content_tag_left"></div><a></a>');
+      window.data = { A: "A" };
+      initializeBackTemplate();
+
+      const input = document.querySelector("input")!;
+      expect(input.style.backgroundColor).toBe("rgb(124, 232, 0)");
+      expect(input.value).toBe("A");
+      expect(document.querySelector("a")?.textContent).toBe("Link");
+    });
+
+    test("skips grading when window.data is missing, without throwing", () => {
+      setupDom('<input name="A">');
+      delete window.data;
+
+      expect(() => initializeBackTemplate()).not.toThrow();
+      const input = document.querySelector("input")!;
+      expect(input.style.backgroundColor).toBe("");
+      expect(input.value).toBe("");
     });
   });
 });

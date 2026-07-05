@@ -33,8 +33,8 @@ function setupEnterKeyEvent(): void {
   const handleEnterKey = (event: KeyboardEvent): void => {
     if (event.key === "Enter") {
       event.preventDefault();
-      if (typeof (window as any).pycmd !== "undefined") {
-        (window as any).pycmd("ans");
+      if (typeof window.pycmd !== "undefined") {
+        window.pycmd("ans");
       }
     }
   };
@@ -69,7 +69,7 @@ function storeInput(): Record<string, string> {
 
 // front template initialization
 function initializeFrontTemplate(): void {
-  (window as any).data = storeInput();
+  window.data = storeInput();
   setupDOMContentLoaded(function() {
     setInputAttributes();
     placeCursor();

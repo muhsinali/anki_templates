@@ -9,7 +9,8 @@ This document explains how to build, test, and extend the Anki template system.
 
 ## Prerequisites
 
-- Node.js (v18+ recommended)
+- Node.js (v24+, the current LTS — CI runs on Node 24; `.nvmrc` pins 24 and
+  `package.json`'s `engines` field enforces `>=24`)
 - npm
 - [pre-commit](https://pre-commit.com/) (optional — only needed for the git hooks)
 
@@ -36,7 +37,8 @@ A `Makefile` wraps the common commands. Run `make` on its own to see this list:
 | `make build` | Regenerate the templates in `code_cards/` |
 | `make test` | Run the Jest test suite |
 | `make coverage` | Tests with a coverage report |
-| `make check` | test + build — run this before committing |
+| `make typecheck` | `tsc --noEmit` for both tsconfigs |
+| `make check` | typecheck + test + build — run this before committing |
 | `make hooks` | Install the pre-commit git hooks |
 | `make clean` | Remove `dist/` and `coverage/` |
 
@@ -115,8 +117,10 @@ Two ordering guarantees matter here:
 
 ### What the build does NOT do
 
-- **No type-checking.** `ts.transpile()` strips types without checking them.
-  Run `npx tsc -p tsconfig.json --noEmit` to catch type errors.
+- **No type-checking.** `transpileSource()` strips types without checking
+  them. Syntax errors *do* fail the build (transpile diagnostics are
+  checked and thrown), but type errors sail through — run
+  `npx tsc -p tsconfig.json --noEmit` to catch those (CI does).
 - **No CSS generation.** `code_cards/styling.css` is hand-maintained.
 - **No bundling/minification.** The build is `readFileSync` → `ts.transpile`
   → checked literal placeholder injection → `writeFileSync`, all synchronous.
@@ -128,6 +132,7 @@ Two ordering guarantees matter here:
 | `src/common.ts` | Shared functions (both card sides) | `displayTags`, `prettifyTag`, `setLinkText` |
 | `src/front_template.ts` | Front card logic | `placeCursor`, `storeInput`, `setupHint`, `setupEnterKeyEvent` |
 | `src/back_template.ts` | Back card logic | `parseInput`, `revealAnswer` |
+| `src/global.d.ts` | The `Window` contract: `window.data` (state that crosses the flip) and `window.pycmd` (Anki's backend hook), both optional | — |
 
 ## Output Files
 
@@ -151,42 +156,85 @@ file is absent the import fails silently.
 ```bash
 npm test                      # Run all tests
 npm test -- --watch           # Watch mode (re-run on changes)
-npm test -- --coverage        # Generate coverage report (see warning below)
+npm test -- --coverage        # Coverage report + enforced thresholds
 npm test -- tests/common.test.ts  # Run specific test file
 ```
 
-> **Warning:** the coverage report currently shows 0% for all `src/` files even though
-> the suite passes — the tests `eval()` transpiled source, which Jest's default
-> (Istanbul) instrumentation cannot see. Don't use the numbers. A verified fix (V8
-> coverage provider + `sourceURL` attribution) is specified in
-> [improve-test-infrastructure.md](improve-test-infrastructure.md), step 5.
+Coverage is real and enforced: `jest.config.js` uses the **V8 coverage
+provider** with `coverageThreshold` ratchets (near-total for `src/`, a floor
+for `scripts/`), and CI runs the suite with `--coverage`. The eval-based
+tests are visible to coverage because `tests/helpers.ts` transpiles with an
+inline source map and appends a `file://` `sourceURL` to each eval'd script —
+V8 attributes the executed code back to the real `.ts` files, line-precise.
+Jest's default (Istanbul) provider instruments at the transform stage and
+cannot see eval'd code, so don't switch `coverageProvider` back.
 
 ### Test Architecture
+
+A Mermaid overview of the whole test/CI architecture lives in
+[07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md).
 
 Tests use Jest with jsdom to simulate a browser DOM:
 
 1. Set up DOM with `document.body.innerHTML = '<html>...'`
-2. Transpile the real `src/` files using the same settings as the build
-   (`module: none`, `target: ES2022`)
-3. Execute transpiled code with `eval()` to attach functions to `window` —
-   so tests exercise the exact code that ships
-4. Test functions via `(window as any).functionName()`
+2. Load the real `src/` files with `loadScripts()` from the shared harness
+   (`tests/helpers.ts`), which transpiles them through the build script's
+   own `transpileSource()` — the same code path and compiler settings
+   (`module: none`, `target: ES2022`) the shipped templates are built with,
+   so the two can never drift apart — caches the transpiled output per
+   file, and `eval()`s it so functions attach to `window`: tests exercise
+   the exact code that ships
+3. Call the functions as **bare typed globals** (`storeInput()`,
+   `revealAnswer(data)`, …): the `src/` files are global scripts inside
+   `tsconfig.jest.json`'s program, so their declarations are ambient and
+   fully typed in tests — renaming or re-signaturing a `src/` function
+   fails `tsc`, not just the test run. `window.data` and `window.pycmd`
+   are typed by `src/global.d.ts`
+
+Note: eval'ing a template file also runs its trailing `initialize*()` call
+as a side effect, against whatever DOM is present — mirroring how the
+shipped `<script>` behaves in Anki. Tests that exercise the initializers
+call the `initialize*()` global directly on a prepared DOM.
 
 Template test files load `common.ts` before the template-specific file,
 mirroring the `%COMMON_JS%` → `%TEMPLATE_JS%` order in the built HTML.
+
+On top of that unit layer, `tests/integration.test.ts` exercises the whole
+card lifecycle end-to-end, the way Anki runs it:
+
+1. Builds both templates **in-memory** through the build script's own
+   `transpileSource()` + `injectJavaScript()` — a broken base template or
+   broken injection fails this test
+2. Renders the Anki fields (`{{Front}}`, `{{#Hint}}…{{/Hint}}`, …) with a
+   small mustache substitute, applied to the whole template including the
+   `<script>` — exactly like Anki
+3. Loads the front: sets `document.body.innerHTML`, then evals the extracted
+   script (setting `innerHTML` never executes `<script>` tags), types into
+   the inputs, and presses Enter against a `pycmd` mock
+4. Flips exactly as Anki does: same window (`window.data` persists), fresh
+   DOM re-rendered from `{{Front}}`, back script eval'd, grading asserted
+
+One nuance to leave alone: the built script begins with `"use strict"`, so
+under `eval()` its function declarations stay scoped to the eval instead of
+becoming globals (in a real `<script>` tag they would become globals). That
+is fine — each side's script is self-contained, and the only state that must
+cross the flip, `window.data`, is assigned to `window` explicitly.
 
 Test configuration:
 
 | File | Role |
 |------|------|
-| `jest.config.js` | `ts-jest` preset, `jsdom` test environment, points at `tsconfig.jest.json` |
+| `jest.config.js` | `ts-jest` preset, `jsdom` test environment, `clearMocks`, points at `tsconfig.jest.json` |
 | `tsconfig.jest.json` | Extends `tsconfig.json`; adds `isolatedModules`, `noEmit`, jest/node types |
+| `tests/helpers.ts` | Shared harness: `loadScripts()` transpiles `src/` files via the build's `transpileSource()` (cached) and evals them into the window |
 
 ### Test Files
 
 | Test File | Tests For |
 |-----------|-----------|
-| `tests/build_templates.test.ts` | Placeholder validation and literal JavaScript injection |
+| `tests/build_templates.test.ts` | Transpile diagnostics, placeholder validation, literal JavaScript injection, base-template invariants |
+| `tests/integration.test.ts` | End-to-end card lifecycle: in-memory build → field render → front → type → Enter → flip → grading |
+| `tests/property.test.ts` | Property-based (fast-check): `parseInput` idempotence, no whitespace/curly quotes in output, quote-style-insensitive grading; `prettifyTag` never emits `::`/`_`, idempotent |
 | `tests/common.test.ts` | `displayTags`, `prettifyTag`, `setLinkText` |
 | `tests/front_template.test.ts` | `placeCursor`, `storeInput`, `setupHint`, etc. |
 | `tests/back_template.test.ts` | `parseInput`, `revealAnswer` |
@@ -259,6 +307,13 @@ Key selectors:
 - Check that functions are defined at top level (not inside a module/namespace)
 - Rebuild with `npm run build`
 
+### Build fails with "Failed to transpile"
+
+- A `src/` file has a TypeScript **syntax** error — the message lists the
+  file, line, and TS diagnostic. Fix the syntax and rebuild.
+- Only syntax errors are caught here; type errors still build fine (see
+  "TypeScript errors" below).
+
 ### Build fails with "missing required placeholder"
 
 - Ensure the base template still contains both `%COMMON_JS%` and
@@ -268,9 +323,9 @@ Key selectors:
 
 ### Tests fail but build works
 
-- Tests use the same transpilation settings as build
+- Tests transpile through the build's own `transpileSource()` (via
+  `tests/helpers.ts`), so the compiler settings cannot drift between the two
 - Check that `setupDom()` is called before testing functions
-- Ensure TextEncoder/TextDecoder polyfills are imported in test file
 
 ### Changes not appearing in Anki
 
@@ -289,18 +344,18 @@ Key selectors:
 ### TypeScript errors
 
 ```bash
-npx tsc -p tsconfig.json --noEmit  # Check for type errors without emitting
+make typecheck  # tsc --noEmit for both tsconfigs
 ```
 
-Remember: `npm run build` does not type-check, so a successful build does not
-mean the types are sound.
+Remember: `npm run build` does not type-check (it only fails on syntax
+errors), so a successful build does not mean the types are sound. The
+pre-commit hook and CI both run the type-check, so type errors cannot
+reach a commit or a merge unnoticed.
 
 ## File Dependencies
 
 ```
-tsconfig.json          ← TypeScript compiler options
-  ↓
-scripts/build-templates.ts
+scripts/build-templates.ts   ← compiler settings live in transpileSource()
   ↓
   ├── templates/*_template_base.html  (structure)
   ├── src/common.ts                   (shared logic)
@@ -308,6 +363,12 @@ scripts/build-templates.ts
   ↓
 code_cards/*_template.html  (output)
 ```
+
+Note: the build does **not** read `tsconfig.json` — that file (and
+`tsconfig.jest.json`, which extends it) is used only by `tsc --noEmit`
+type-checking and by the test runner. The build's compiler settings are
+hard-coded in `transpileSource()`, which the tests import so the two cannot
+drift.
 
 ## Pre-Commit Hooks
 
@@ -317,6 +378,7 @@ The project uses pre-commit hooks (`.pre-commit-config.yaml`):
 - End-of-file fixer
 - YAML/JSON validation
 - Line ending normalization (→ LF)
+- **TypeScript must type-check** (both tsconfigs, `--noEmit`)
 - **Jest tests must pass**
 
 ```bash
@@ -324,17 +386,24 @@ pre-commit install        # Install hooks into .git/hooks
 pre-commit run --all-files  # Run all hooks manually
 ```
 
-## CI/CD Considerations
+## Continuous Integration
 
-There is currently no CI pipeline configured (no GitHub Actions workflows).
-For automated builds, the canonical sequence is:
+Every push and pull request runs the CI workflow
+(`.github/workflows/ci.yml`) on Node 24:
 
 ```bash
-npm ci                 # Clean install (faster, uses package-lock.json)
-npm test               # Run tests
-npm run build          # Generate templates
+npm ci                             # Clean install from package-lock.json
+npx tsc -p tsconfig.json --noEmit  # Type-check src/ (the build never type-checks)
+npx tsc -p tsconfig.jest.json --noEmit  # Type-check tests/ and scripts/
+npm test -- --coverage             # Run the Jest suite + coverage thresholds
+npm run build                      # Regenerate the templates
+git diff --exit-code code_cards/   # Fail if committed output drifted from src/
 ```
 
-Generated files in `code_cards/` are committed to the repo so users can copy
-them into Anki without building — remember to commit regenerated output
-alongside source changes.
+The last step is the drift gate: generated files in `code_cards/` are
+committed to the repo so users can copy them into Anki without building, and
+CI fails any change that edits `src/` or `templates/` without committing the
+regenerated output. It also implicitly asserts the build is deterministic.
+
+A PR cannot merge green if it breaks the types, the tests, the build, or
+forgets to regenerate `code_cards/`.
