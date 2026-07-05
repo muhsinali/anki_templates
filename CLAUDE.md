@@ -10,7 +10,7 @@ This is an Anki flashcard template system that generates interactive code practi
 
 - `README.md` — User-facing: what the cards do, Anki setup, authoring cards, tagging/linking conventions
 - `BUILD.md` — Developer-facing: build/test workflow, extending the system, troubleshooting
-- `documentation/architecture-diagrams/` — Six hand-authored Mermaid diagrams (system context, build pipeline, module structure, runtime data flow, answer validation, card lifecycles). Update these when the architecture changes.
+- `documentation/architecture-diagrams/` — Seven hand-authored Mermaid diagrams (system context, build pipeline, module structure, runtime data flow, answer validation, card lifecycles, test architecture & CI gate). Update these when the architecture changes.
 - `improvement-plan.md` — Prioritized backlog of bugs, testing gaps, improvements, and housekeeping (scored by impact)
 - `improve-test-infrastructure.md` — Sequenced plan for the test infrastructure (CI, build tests, e2e test, coverage fix); claims machine-verified — see its validation log
 
@@ -54,7 +54,7 @@ make check      # typecheck + test + build (run before committing)
 │   ├── back_template.html         # Generated - do not edit directly
 │   └── styling.css                # MANUALLY MAINTAINED - not generated
 ├── documentation/
-│   └── architecture-diagrams/     # Mermaid diagrams 01-06 + index README
+│   └── architecture-diagrams/     # Mermaid diagrams 01-07 + index README
 ├── Makefile                       # Dev shortcuts (make help / build / test / check)
 ├── BUILD.md                       # Build/test/troubleshooting guide
 └── dist/                          # Output of manual `npx tsc` only (gitignored, unused by build)

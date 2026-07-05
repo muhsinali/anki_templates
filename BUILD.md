@@ -171,6 +171,9 @@ cannot see eval'd code, so don't switch `coverageProvider` back.
 
 ### Test Architecture
 
+A Mermaid overview of the whole test/CI architecture lives in
+[07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md).
+
 Tests use Jest with jsdom to simulate a browser DOM:
 
 1. Set up DOM with `document.body.innerHTML = '<html>...'`

@@ -1,5 +1,22 @@
 # Improving the Test Infrastructure
 
+> **Execution status (2026-07-05): complete.** Steps 1–7 are implemented, one
+> commit per step, each worked red → green with every gate demonstrated to
+> trip before being trusted. From step 8, the property-based tests (fast-check)
+> landed; mutation testing, the Playwright smoke test, and the golden-file
+> snapshot remain deliberately unimplemented per this plan's own criteria.
+> Deviations from the plan as written: coverage thresholds exclude `.d.ts`
+> files (Node 24's V8 counts them as 0% rows, Node 22's does not — caught by
+> the CI matrix); step 6 used bare typed globals in tests instead of the
+> sketched accessor (a hand-synced accessor would not notice a rename — the
+> ambient declarations do); `tsconfig.jest.json` gained `skipLibCheck` because
+> fast-check's declarations use subpath type imports that legacy
+> `moduleResolution: "node"` cannot follow. Current state: 48 tests across 6
+> suites, `src/` at 100% statement coverage (enforced ≥95), CI green on Node
+> 22 and 24, type-check + tests wired into pre-commit, and diagram
+> [07-test-and-ci](documentation/architecture-diagrams/07-test-and-ci.md)
+> documents the result.
+
 This is a step-by-step plan for upgrading the testing infrastructure of the Anki code
 cards project, based on a full read-through of the source, tests, build script,
 templates, configs, and docs. Steps are ordered by impact: each one either closes the
