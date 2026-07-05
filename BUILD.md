@@ -9,7 +9,8 @@ This document explains how to build, test, and extend the Anki template system.
 
 ## Prerequisites
 
-- Node.js (v22+ — CI runs on Node 22 and 24, the maintained LTS lines)
+- Node.js (v22+ — CI runs on Node 22 and 24, the maintained LTS lines;
+  `.nvmrc` pins 22 and `package.json`'s `engines` field enforces `>=22`)
 - npm
 - [pre-commit](https://pre-commit.com/) (optional — only needed for the git hooks)
 
