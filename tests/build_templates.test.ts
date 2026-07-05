@@ -1,6 +1,11 @@
-import { readFileSync } from "fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
-import { injectJavaScript, transpileSource } from "../scripts/build-templates";
+import {
+  buildTemplate,
+  injectJavaScript,
+  transpileSource,
+} from "../scripts/build-templates";
 
 describe("transpileSource", () => {
   test("strips types with the build's compiler settings", () => {
@@ -99,6 +104,51 @@ describe("injectJavaScript", () => {
     expect(() =>
       injectJavaScript("<script>%COMMON_JS%</script>", "common", "template"),
     ).toThrow("Base template is missing required placeholder %TEMPLATE_JS%");
+  });
+});
+
+describe("buildTemplate", () => {
+  const originalCwd = process.cwd();
+  let workspace: string;
+
+  beforeEach(() => {
+    workspace = mkdtempSync(join(tmpdir(), "anki-template-build-"));
+    mkdirSync(join(workspace, "templates"));
+    mkdirSync(join(workspace, "src"));
+    mkdirSync(join(workspace, "code_cards"));
+
+    writeFileSync(
+      join(workspace, "templates", "front_template_base.html"),
+      "<script>%COMMON_JS%\n%TEMPLATE_JS%</script>",
+    );
+    writeFileSync(
+      join(workspace, "src", "common.ts"),
+      "function sharedValue(): string { return 'shared'; }\n",
+    );
+    writeFileSync(
+      join(workspace, "src", "front_template.ts"),
+      "function templateValue(): string { return sharedValue(); }\n",
+    );
+
+    process.chdir(workspace);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    rmSync(workspace, { recursive: true, force: true });
+  });
+
+  test("builds one side from base, common, and side-specific sources", () => {
+    buildTemplate("front");
+
+    const builtTemplate = readFileSync(
+      join(workspace, "code_cards", "front_template.html"),
+      "utf8",
+    );
+    expect(builtTemplate).toContain("function sharedValue()");
+    expect(builtTemplate).toContain("function templateValue()");
+    expect(builtTemplate).not.toContain("%COMMON_JS%");
+    expect(builtTemplate).not.toContain("%TEMPLATE_JS%");
   });
 });
 

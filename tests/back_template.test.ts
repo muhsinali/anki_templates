@@ -1,11 +1,11 @@
-// Unit tests for back_template.ts functions
-import { loadScripts } from "./helpers";
+import { loadTemplateDom, requiredElement } from "./helpers";
 
-// Set up DOM and load back_template.ts (common.ts first, mirroring the
-// %COMMON_JS% → %TEMPLATE_JS% order in the built HTML)
 function setupDom(html: string = "") {
-  document.body.innerHTML = html;
-  loadScripts("common.ts", "back_template.ts");
+  loadTemplateDom(html, "back_template.ts");
+}
+
+function firstInput(): HTMLInputElement {
+  return requiredElement<HTMLInputElement>("input");
 }
 
 describe("Back Template Functions", () => {
@@ -60,7 +60,7 @@ describe("Back Template Functions", () => {
       const data = { "print(“hi”)": 'print("hi")' };
       revealAnswer(data);
 
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       expect(input.classList.contains("answer-correct")).toBe(true);
       expect(input.value).toBe("print(“hi”)");
     });
@@ -71,7 +71,7 @@ describe("Back Template Functions", () => {
       const data = { "print('hi')": "print(‘hi’)" };
       revealAnswer(data);
 
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       expect(input.classList.contains("answer-correct")).toBe(true);
       expect(input.value).toBe("print('hi')");
     });
@@ -120,7 +120,7 @@ describe("Back Template Functions", () => {
       window.data = { values: { A: "A" }, inputNames: ["A"] };
       initializeBackTemplate();
 
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       expect(input.classList.contains("answer-correct")).toBe(true);
       expect(input.value).toBe("A");
       expect(document.querySelector("#url_container a")?.textContent).toBe("Link");
@@ -132,7 +132,7 @@ describe("Back Template Functions", () => {
 
       initializeBackTemplate();
 
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       expect(input.className).toBe("");
       expect(input.value).toBe("");
     });
@@ -142,7 +142,7 @@ describe("Back Template Functions", () => {
       delete window.data;
 
       expect(() => initializeBackTemplate()).not.toThrow();
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       expect(input.className).toBe("");
       expect(input.value).toBe("");
     });

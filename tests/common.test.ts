@@ -1,53 +1,50 @@
-// Unit tests for common.ts functions
-import { loadScripts } from "./helpers";
+import { loadTemplateDom, requiredElement } from "./helpers";
 
-// Set up DOM and load common.ts into the existing jsdom window
 function setupDom(html: string = "") {
-  document.body.innerHTML = html;
-  loadScripts("common.ts");
+  loadTemplateDom(html);
+}
+
+function renderedTags(): string | null {
+  return document.getElementById("content_tag_left")?.textContent ?? null;
+}
+
+function sourceLink(): HTMLAnchorElement {
+  return requiredElement<HTMLAnchorElement>("#url_container a");
 }
 
 describe("displayTags", () => {
-  // Provide a container element where the formatted tag string will be rendered
   beforeEach(() => setupDom('<div id="content_tag_left"></div>'));
 
-  // Tags should be prettified and sorted alphabetically
   test("formats and sorts tags", () => {
-    const tags = "b_a Computing::AI a_c";
-    displayTags(tags);
-    const elem = document.getElementById("content_tag_left");
-    expect(elem?.textContent).toBe("a c, b a, Computing - AI");
+    displayTags("b_a Computing::AI a_c");
+
+    expect(renderedTags()).toBe("a c, b a, Computing - AI");
   });
 
   test("sorts mixed-case tags alphabetically", () => {
-    const tags = "zeta Alpha beta";
-    displayTags(tags);
-    const elem = document.getElementById("content_tag_left");
-    expect(elem?.textContent).toBe("Alpha, beta, zeta");
+    displayTags("zeta Alpha beta");
+
+    expect(renderedTags()).toBe("Alpha, beta, zeta");
   });
 
-  // Edge case: no tags should result in an empty string
   test("handles empty string", () => {
     displayTags("");
-    expect(document.getElementById("content_tag_left")?.textContent).toBe("");
+
+    expect(renderedTags()).toBe("");
   });
 
-  // Edge case: filters out empty tags from spaces
   test("filters out empty tags from spaces", () => {
-    const tags = "a  b   c";
-    displayTags(tags);
-    const elem = document.getElementById("content_tag_left");
-    expect(elem?.textContent).toBe("a, b, c");
+    displayTags("a  b   c");
+
+    expect(renderedTags()).toBe("a, b, c");
   });
 });
 
 describe("prettifyTag", () => {
-  // Basic transformation of "::" and "_" characters
   test("replaces :: and underscores", () => {
     setupDom();
-    expect(prettifyTag("Code::Hello_World")).toBe(
-      "Code - Hello World",
-    );
+
+    expect(prettifyTag("Code::Hello_World")).toBe("Code - Hello World");
   });
 });
 
@@ -63,10 +60,10 @@ describe("setLinkText", () => {
     const promptLink = document.querySelector<HTMLAnchorElement>(
       'a[href="https://example.com/prompt"]',
     );
-    const sourceLink = document.querySelector<HTMLAnchorElement>("#url_container a");
+    const link = sourceLink();
     expect(promptLink?.textContent).toBe("Prompt link");
-    expect(sourceLink?.textContent).toBe("Link");
-    expect(sourceLink?.getAttribute("href")).toBe("https://example.com/source");
+    expect(link.textContent).toBe("Link");
+    expect(link.getAttribute("href")).toBe("https://example.com/source");
   });
 
   test("does not rename content anchors when the URL container has no link", () => {
@@ -85,9 +82,9 @@ describe("setLinkText", () => {
 
     setLinkText();
 
-    const sourceLink = document.querySelector<HTMLAnchorElement>("#url_container a");
-    expect(sourceLink?.textContent).toBe("Link");
-    expect(sourceLink?.getAttribute("href")).toBe("https://example.com/source?q=1");
+    const link = sourceLink();
+    expect(link.textContent).toBe("Link");
+    expect(link.getAttribute("href")).toBe("https://example.com/source?q=1");
   });
 
   test("creates a link from a raw HTTP URL", () => {
@@ -95,9 +92,9 @@ describe("setLinkText", () => {
 
     setLinkText();
 
-    const sourceLink = document.querySelector<HTMLAnchorElement>("#url_container a");
-    expect(sourceLink?.textContent).toBe("Link");
-    expect(sourceLink?.getAttribute("href")).toBe("http://example.com/source");
+    const link = sourceLink();
+    expect(link.textContent).toBe("Link");
+    expect(link.getAttribute("href")).toBe("http://example.com/source");
   });
 
   test("leaves empty or invalid URL text untouched", () => {
@@ -109,9 +106,9 @@ describe("setLinkText", () => {
     expect(document.getElementById("url_container")?.textContent).toBe("not a url");
   });
 
-  // Should not throw if the DOM has no URL container
   test("does nothing without a URL container", () => {
     setupDom();
+
     expect(() => setLinkText()).not.toThrow();
   });
 });

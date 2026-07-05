@@ -1,11 +1,15 @@
-// Unit tests for front_template.ts functions
-import { loadScripts } from "./helpers";
+import { loadTemplateDom, requiredElement } from "./helpers";
 
-// Set up DOM and load front_template.ts (common.ts first, mirroring the
-// %COMMON_JS% → %TEMPLATE_JS% order in the built HTML)
 function setupDom(html: string = "") {
-  document.body.innerHTML = html;
-  loadScripts("common.ts", "front_template.ts");
+  loadTemplateDom(html, "front_template.ts");
+}
+
+function firstInput(): HTMLInputElement {
+  return requiredElement<HTMLInputElement>("input");
+}
+
+function hintElement(): HTMLElement {
+  return requiredElement<HTMLElement>("#hint");
 }
 
 describe("Front Template Functions", () => {
@@ -26,7 +30,7 @@ describe("Front Template Functions", () => {
     test("sets attributes on inputs", () => {
       setupDom("<input><input>");
       setInputAttributes();
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       expect(input.getAttribute("autocapitalize")).toBe("off");
       expect(input.getAttribute("autocomplete")).toBe("off");
       expect(input.getAttribute("autocorrect")).toBe("off");
@@ -110,7 +114,7 @@ describe("Front Template Functions", () => {
       setupEnterKeyEvent();
 
       const keydownHandler = addEventListenerSpy.mock.calls.find(
-        call => call[0] === "keydown"
+        (call) => call[0] === "keydown",
       )?.[1];
 
       const enterEvent = new KeyboardEvent("keydown", { key: "Enter", isComposing: true });
@@ -127,7 +131,7 @@ describe("Front Template Functions", () => {
     test("a mousedown event should reveal the hint", () => {
       setupDom('<div id="hint"></div>');
       setupHint();
-      const hint = document.getElementById("hint") as HTMLElement;
+      const hint = hintElement();
       hint.dispatchEvent(new window.Event("mousedown"));
       expect(hint.className).toBe("shown");
     });
@@ -135,7 +139,7 @@ describe("Front Template Functions", () => {
     test("a touchstart event should reveal the hint", () => {
       setupDom('<div id="hint"></div>');
       setupHint();
-      const hint = document.getElementById("hint") as HTMLElement;
+      const hint = hintElement();
       hint.dispatchEvent(new window.Event("touchstart"));
       expect(hint.className).toBe("shown");
     });
@@ -153,7 +157,7 @@ describe("Front Template Functions", () => {
 
       // window.data created and kept in sync with typing
       expect(window.data).toEqual({ values: { x: "" }, inputNames: ["x"] });
-      const input = document.querySelector("input")!;
+      const input = firstInput();
       input.value = "abc";
       input.dispatchEvent(new window.Event("input"));
       expect(window.data).toEqual({ values: { x: "abc" }, inputNames: ["x"] });
@@ -164,7 +168,7 @@ describe("Front Template Functions", () => {
       expect(input.getAttribute("spellcheck")).toBe("false");
 
       // hint reveal wired
-      const hint = document.getElementById("hint")!;
+      const hint = hintElement();
       hint.dispatchEvent(new window.Event("mousedown"));
       expect(hint.className).toBe("shown");
 

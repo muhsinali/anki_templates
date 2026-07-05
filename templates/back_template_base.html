@@ -1,9 +1,7 @@
-<!-- Disable automated zoom onto cursor on mobile devices -->
+<!-- Keep mobile browsers from zooming into answer inputs. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-<!-------- Card Content, Hint, Tags and URL -------->
 <div class="content_aligned">
-    <!------- Content and Hint ------->
     {{Front}}
 
     <br>
@@ -16,7 +14,7 @@
     {{/Hint}}
 
     {{#Back}}
-        <!-- Only add horizontal rule if Back is not empty -->
+        <!-- Keep the separator out of cards that only have front-side answers. -->
         <hr>
     {{/Back}}
 
@@ -24,15 +22,9 @@
     <br>
 </div>
 
-
-
-<!------- Tags and URL ------->
 <div id="content_tag_left" class="tag"></div>
 <div id="url_container">{{URL}}</div>
 
-
-
-<!-------- JavaScript -------->
 <script>
     "use strict";
     %COMMON_JS%
