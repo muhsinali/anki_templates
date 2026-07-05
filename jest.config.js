@@ -9,8 +9,11 @@ module.exports = {
   // Istanbul instruments at the transform stage and cannot see eval'd code.
   coverageProvider: 'v8',
   // List files explicitly so never-loaded files show up as 0% instead of
-  // being invisible
-  collectCoverageFrom: ['src/**/*.ts', 'scripts/**/*.ts'],
+  // being invisible. Declaration files are excluded: they contain no
+  // executable code, but Node 24's V8 coverage counts them as 0% rows,
+  // which would sink the src/ threshold (Node 22 omits them — the check
+  // must behave the same on both CI matrix legs).
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', 'scripts/**/*.ts'],
   // Ratchet: slightly below observed values (src ~100/97, scripts ~69/62 at
   // the time of writing) so coverage can only stay level or rise. Files
   // matching the src path are excluded from the global check, so "global"
