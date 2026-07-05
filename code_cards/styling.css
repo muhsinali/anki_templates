@@ -1,5 +1,3 @@
-@import url("_editor_button_styles.css");
-
 /*  CARD  */
 .card {
     font-family: arial;
@@ -106,4 +104,98 @@ a {
 input {
     font-family: "MesloLGS NF";
     font-size: 16px;
+}
+
+input.answer-correct {
+    background-color: #d6f5d6;
+    border: 2px solid #237a3b;
+    color: #000000;
+    font-weight: bold;
+}
+
+input.answer-wrong {
+    background-color: #ffe0e0;
+    border: 2px solid #a83232;
+    color: #000000;
+    font-weight: bold;
+}
+
+.answer-feedback {
+    display: inline-block;
+    font-family: arial;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1.2;
+    margin-left: 0.35em;
+    vertical-align: middle;
+}
+
+.answer-feedback.answer-correct {
+    color: #236b33;
+}
+
+.answer-feedback.answer-wrong {
+    color: #9c1f1f;
+}
+
+/* NIGHT MODE */
+.card.nightMode {
+    color: #e9eef2;
+    text-shadow: none;
+}
+
+.card.nightMode #hint {
+    background: #20485d;
+    color: #f5fbff;
+    opacity: 1;
+}
+
+.card.nightMode #hint.hidden:hover {
+    background: #2f6f8d;
+}
+
+.card.nightMode #hint.shown {
+    background: #1e2933;
+    color: #f5fbff;
+}
+
+.card.nightMode #content_tag_left,
+.card.nightMode #url_container {
+    color: #d6e2ea;
+}
+
+.card.nightMode a {
+    color: #9bd3ff;
+}
+
+.card.nightMode .exerciseprecontainer {
+    background-color: #202833;
+    border-color: #3a4654;
+    color: #f4f6f8;
+}
+
+.card.nightMode input {
+    background-color: #101820;
+    border: 1px solid #6b7785;
+    color: #f4f6f8;
+}
+
+.card.nightMode input.answer-correct {
+    background-color: #12351f;
+    border-color: #64c27b;
+    color: #f2fff5;
+}
+
+.card.nightMode input.answer-wrong {
+    background-color: #421d22;
+    border-color: #f08a8a;
+    color: #fff5f5;
+}
+
+.card.nightMode .answer-feedback.answer-correct {
+    color: #87d99a;
+}
+
+.card.nightMode .answer-feedback.answer-wrong {
+    color: #ffaaaa;
 }

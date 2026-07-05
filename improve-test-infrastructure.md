@@ -52,7 +52,7 @@ and — from step 7 on — the installed pre-commit hooks) before being pushed.
 | 7 · Dependency hygiene | `2cc8b7c` | Jest 30 + environment 30 (42/42 unmodified, as pre-validated); direct `jsdom` dropped; prettier **uninstalled** (the "decide" call — it formatted nothing); `private: true`; `engines` + `.nvmrc` |
 | 8 · Stretch (partial, by design) | `1d884d1` | fast-check property tests landed (6 tests: `parseInput` idempotence / no whitespace or curly quotes / quote-style-insensitive grading / identity on normalized input; `prettifyTag` never emits `::` or `_`, idempotent; both sabotages seen red). Stryker, Playwright, and the golden snapshot deliberately not done, per this plan's own criteria. Side effect: the pre-commit typecheck hook blocked fast-check's declarations until `tsconfig.jest.json` gained `skipLibCheck` (its `.d.ts` uses subpath type imports legacy `moduleResolution: "node"` cannot follow). 42 → 48 tests |
 | Docs & diagrams | `bbbce59` | New diagram `07-test-and-ci.md` (test architecture + CI gate, all Mermaid blocks render-validated); `03-module-structure` refreshed; indexes and cross-links updated |
-| Node 24 consolidation | `08eb1f0` | Post-plan decision: single supported line. Matrix → one Node 24 job; `engines: ">=24"`; `.nvmrc` 24; `@types/node` ^24; docs aligned. (The 22+24 matrix caught the `.d.ts` divergence before retiring) |
+| Node 24 consolidation | `08eb1f0` | Post-plan decision: Node 24 as the minimum supported runtime. Matrix → one Node 24 job; `engines: ">=24"`; `.nvmrc` 24; `@types/node` ^24; docs aligned. (The 22+24 matrix caught the `.d.ts` divergence before retiring) |
 
 **End state:** 48 tests across 6 suites (unit, build-script, property,
 integration) in ~1s; `src/` at 100% statements / 97.3% branches with

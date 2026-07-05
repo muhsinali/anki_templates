@@ -31,6 +31,16 @@ describe("base template invariants", () => {
   );
 
   test.each(baseTemplates)(
+    "%s base template contains the mobile viewport tag exactly once",
+    (_side, html) => {
+      expect(html.split('name="viewport"').length - 1).toBe(1);
+      expect(html).toContain(
+        '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">',
+      );
+    },
+  );
+
+  test.each(baseTemplates)(
     "%s base template puts %%COMMON_JS%% before %%TEMPLATE_JS%%, inside a <script> block at the end of the body",
     (_side, html) => {
       const scriptStart = html.lastIndexOf("<script>");
@@ -89,5 +99,16 @@ describe("injectJavaScript", () => {
     expect(() =>
       injectJavaScript("<script>%COMMON_JS%</script>", "common", "template"),
     ).toThrow("Base template is missing required placeholder %TEMPLATE_JS%");
+  });
+});
+
+describe("styling invariants", () => {
+  const styling = readFileSync(join(process.cwd(), "code_cards", "styling.css"), "utf8");
+
+  test("defines class-based answer states and night mode overrides", () => {
+    expect(styling).toContain("input.answer-correct");
+    expect(styling).toContain("input.answer-wrong");
+    expect(styling).toContain(".answer-feedback");
+    expect(styling).toContain(".card.nightMode");
   });
 });

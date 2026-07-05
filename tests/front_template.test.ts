@@ -78,25 +78,48 @@ describe("Front Template Functions", () => {
       addEventListenerSpy.mockRestore();
     });
 
-    test("attaches keydown event listener", () => {
+    test("attaches the keydown event listener only once", () => {
+      delete window.enterKeyHandlerBound;
+      addEventListenerSpy.mockImplementation(() => undefined as any);
+
       setupEnterKeyEvent();
+      setupEnterKeyEvent();
+
       expect(addEventListenerSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
+      expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
     });
 
-    test("calls pycmd('ans') when Enter key is pressed", () => {
+    test("calls pycmd('ans') once when one Enter key is dispatched", () => {
+      setupEnterKeyEvent();
+      setupEnterKeyEvent();
+
+      const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+      const preventDefaultSpy = jest.spyOn(enterEvent, "preventDefault");
+
+      document.dispatchEvent(enterEvent);
+
+      expect(preventDefaultSpy).toHaveBeenCalled();
+      expect(mockPycmd).toHaveBeenCalledTimes(1);
+      expect(mockPycmd).toHaveBeenCalledWith("ans");
+    });
+
+    test("ignores composing Enter key events", () => {
+      delete window.enterKeyHandlerBound;
+      addEventListenerSpy.mockImplementation(() => undefined as any);
+
       setupEnterKeyEvent();
 
       const keydownHandler = addEventListenerSpy.mock.calls.find(
         call => call[0] === "keydown"
       )?.[1];
 
-      const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+      const enterEvent = new KeyboardEvent("keydown", { key: "Enter", isComposing: true });
       const preventDefaultSpy = jest.spyOn(enterEvent, "preventDefault");
 
       keydownHandler(enterEvent);
 
-      expect(preventDefaultSpy).toHaveBeenCalled();
-      expect(mockPycmd).toHaveBeenCalledWith("ans");
+      expect(preventDefaultSpy).not.toHaveBeenCalled();
+      expect(mockPycmd).not.toHaveBeenCalled();
     });
   });
 
@@ -122,17 +145,18 @@ describe("Front Template Functions", () => {
     test("wires up the whole front card in one call", () => {
       setupDom(
         '<input name="x"><div id="hint" class="hidden"></div>' +
-          '<div id="content_tag_left"></div><a></a>',
+          '<div id="content_tag_left"></div>' +
+          '<div id="url_container"><a href="https://example.com">Source</a></div>',
       );
       delete window.data;
       initializeFrontTemplate();
 
       // window.data created and kept in sync with typing
-      expect(window.data).toEqual({ x: "" });
+      expect(window.data).toEqual({ values: { x: "" }, inputNames: ["x"] });
       const input = document.querySelector("input")!;
       input.value = "abc";
       input.dispatchEvent(new window.Event("input"));
-      expect(window.data).toEqual({ x: "abc" });
+      expect(window.data).toEqual({ values: { x: "abc" }, inputNames: ["x"] });
 
       // cursor placed and mobile typing attributes set (readyState is
       // "complete" in jsdom, so the deferred work runs synchronously)
@@ -149,7 +173,7 @@ describe("Front Template Functions", () => {
       expect(document.getElementById("content_tag_left")?.textContent).toBe(
         "{{Tags}}",
       );
-      expect(document.querySelector("a")?.textContent).toBe("Link");
+      expect(document.querySelector("#url_container a")?.textContent).toBe("Link");
     });
   });
 
@@ -162,7 +186,7 @@ describe("Front Template Functions", () => {
       inputs[0].dispatchEvent(new window.Event("input"));
       inputs[1].value = "b";
       inputs[1].dispatchEvent(new window.Event("input"));
-      expect(store).toEqual({ x: "a", y: "b" });
+      expect(store).toEqual({ values: { x: "a", y: "b" }, inputNames: ["x", "y"] });
     });
 
     test("stores initial values and skips inputs without names", () => {
@@ -172,8 +196,9 @@ describe("Front Template Functions", () => {
       expect(inputs[1].value).toBe("");
 
       const store = storeInput();
-      expect(store.x).toBe("initial");
-      expect(Object.keys(store)).toEqual(["x"]);
+      expect(store.values.x).toBe("initial");
+      expect(store.inputNames).toEqual(["x"]);
+      expect(Object.keys(store.values)).toEqual(["x"]);
     });
   });
 });

@@ -33,5 +33,5 @@ check: typecheck test build ## Everything a commit should pass: types, tests, bu
 hooks: ## Install the pre-commit git hooks
 	pre-commit install
 
-clean: ## Remove generated build/test artifacts (dist/, coverage/)
-	rm -rf dist coverage
+clean: ## Remove generated test artifacts (coverage/)
+	rm -rf coverage

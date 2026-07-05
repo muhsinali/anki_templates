@@ -30,8 +30,10 @@ function setupDOMContentLoaded(callback: () => void): void {
 
 // handle Enter/Return key press to show answer (does not yet work on iPhone)
 function setupEnterKeyEvent(): void {
+  if (window.enterKeyHandlerBound) return;
+
   const handleEnterKey = (event: KeyboardEvent): void => {
-    if (event.key === "Enter") {
+    if (event.key === "Enter" && !event.isComposing) {
       event.preventDefault();
       if (typeof window.pycmd !== "undefined") {
         window.pycmd("ans");
@@ -40,6 +42,7 @@ function setupEnterKeyEvent(): void {
   };
 
   document.addEventListener("keydown", handleEnterKey);
+  window.enterKeyHandlerBound = true;
 }
 
 // attach touch and mouse event listeners to reveal the hint element when triggered
@@ -51,16 +54,17 @@ function setupHint(): void {
   }
 }
 
-// store all input values into an object
-function storeInput(): Record<string, string> {
-  const data: Record<string, string> = {};
+// store all input values and their card signature into an object
+function storeInput(): CardInputData {
+  const data: CardInputData = { values: {}, inputNames: [] };
   document.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
     const inputName = input.name;
     // Skip empty inputs
     if (inputName) {
-      data[inputName] = input.value;
+      data.inputNames.push(inputName);
+      data.values[inputName] = input.value;
       input.addEventListener("input", () => {
-        data[inputName] = input.value;
+        data.values[inputName] = input.value;
       });
     }
   });

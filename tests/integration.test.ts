@@ -55,18 +55,16 @@ function typeInto(input: HTMLInputElement, value: string): void {
 // answer (the shipped grading bug class), plus hint, tags, and a URL
 const FIELDS = {
   Front:
-    'How do you print in JS, and in Python?<div class="exerciseprecontainer"><pre>' +
+    'How do you print in JS, and in Python? <a href="https://example.com/prompt">Prompt docs</a>' +
+    '<div class="exerciseprecontainer"><pre>' +
     '<input name="console.log" style="width: 20ch;">\n' +
     '<input name="print(“hi”)" style="width: 20ch;">' +
     "</pre></div>",
   Back: "Remember the quotes.",
   Hint: "Both start with a lowercase letter",
   Tags: "Computing::JavaScript src::MDN",
-  URL: '<a href="https://example.com/print">https://example.com/print</a>',
+  URL: "https://example.com/print",
 };
-
-const GREEN = "rgb(124, 232, 0)";
-const RED = "rgb(240, 128, 128)";
 
 beforeEach(() => {
   delete window.data;
@@ -92,8 +90,11 @@ describe("card lifecycle", () => {
     typeInto(frontInputs[0], "console.log");
     typeInto(frontInputs[1], 'print("hi")');
     expect(window.data).toEqual({
-      "console.log": "console.log",
-      "print(“hi”)": 'print("hi")',
+      values: {
+        "console.log": "console.log",
+        "print(“hi”)": 'print("hi")',
+      },
+      inputNames: ["console.log", "print(“hi”)"],
     });
 
     // Enter asks Anki to flip the card
@@ -108,19 +109,28 @@ describe("card lifecycle", () => {
     const backInputs = document.querySelectorAll("input");
     expect(backInputs).toHaveLength(2);
 
-    // Both answers grade green, overwritten with the expected value in bold
+    // Both answers grade correct, with the expected value shown in place
     backInputs.forEach((input) => {
-      expect(input.style.backgroundColor).toBe(GREEN);
-      expect(input.style.fontWeight).toBe("bold");
+      expect(input.classList.contains("answer-correct")).toBe(true);
+      expect(input.getAttribute("aria-label")).toBe("Correct answer");
+      expect(input.readOnly).toBe(true);
     });
     expect(backInputs[0].value).toBe("console.log");
     expect(backInputs[1].value).toBe("print(“hi”)");
+    expect(Array.from(document.querySelectorAll(".answer-feedback")).map(
+      (feedback) => feedback.textContent,
+    )).toEqual(["Correct", "Correct"]);
 
     // Shared chrome: prettified sorted tags, link text, hint auto-shown
     expect(document.getElementById("content_tag_left")?.textContent).toBe(
       "Computing - JavaScript, src - MDN",
     );
-    expect(document.querySelector("a")?.textContent).toBe("Link");
+    expect(document.querySelector<HTMLAnchorElement>(".content_aligned a")?.textContent).toBe(
+      "Prompt docs",
+    );
+    const urlLink = document.querySelector<HTMLAnchorElement>("#url_container a");
+    expect(urlLink?.textContent).toBe("Link");
+    expect(urlLink?.getAttribute("href")).toBe("https://example.com/print");
     expect(document.getElementById("hint")?.className).toBe("shown");
     expect(document.getElementById("hint")?.textContent).toContain(FIELDS.Hint);
   });
@@ -132,10 +142,14 @@ describe("card lifecycle", () => {
     const inputs = document.querySelectorAll("input");
     expect(inputs).toHaveLength(2);
     inputs.forEach((input) => {
-      expect(input.style.backgroundColor).toBe(RED);
-      expect(input.style.fontWeight).toBe("bold");
+      expect(input.classList.contains("answer-wrong")).toBe(true);
+      expect(input.getAttribute("aria-label")).toBe("Incorrect answer");
+      expect(input.readOnly).toBe(true);
       expect(input.value).toBe(input.name);
     });
+    expect(Array.from(document.querySelectorAll(".answer-feedback")).map(
+      (feedback) => feedback.textContent,
+    )).toEqual(["Incorrect", "Incorrect"]);
   });
 
   test("loading the back without visiting the front leaves inputs ungraded", () => {
@@ -146,7 +160,7 @@ describe("card lifecycle", () => {
     const inputs = document.querySelectorAll("input");
     expect(inputs).toHaveLength(2);
     inputs.forEach((input) => {
-      expect(input.style.backgroundColor).toBe("");
+      expect(input.className).toBe("");
       expect(input.value).toBe("");
     });
     // The rest of the back still initializes

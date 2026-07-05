@@ -57,7 +57,6 @@ make check      # typecheck + test + build (run before committing)
 │   └── architecture-diagrams/     # Mermaid diagrams 01-07 + index README
 ├── Makefile                       # Dev shortcuts (make help / build / test / check)
 ├── BUILD.md                       # Build/test/troubleshooting guide
-└── dist/                          # Output of manual `npx tsc` only (gitignored, unused by build)
 ```
 
 ## Architecture
@@ -69,7 +68,7 @@ make check      # typecheck + test + build (run before committing)
 4. Writes final HTML to `code_cards/`
 
 **Critical TypeScript settings:**
-- `module: none` - Functions attach to global scope (no module wrapper). This is what makes `window.data` a true global shared between front and back.
+- `module: none` - Functions attach to global scope (no module wrapper). `window.data` is assigned explicitly and carries state from front to back.
 - `target: ES2022` - Modern JS features
 
 `%COMMON_JS%` always precedes `%TEMPLATE_JS%` in the base HTML, so shared functions are defined before the template-specific code that calls them.
@@ -79,11 +78,13 @@ make check      # typecheck + test + build (run before committing)
 Anki renders the front and back in the **same webview/JS context**, so globals survive the card flip — but the DOM does not. The back base template re-renders `{{Front}}`, which recreates every `<input>` fresh and empty. The learner's typed answers survive the flip only inside `window.data`:
 
 1. **Front template** (`initializeFrontTemplate`):
-   - `storeInput()` creates `window.data = { inputName: value, ... }`
-   - `input` event listeners keep `window.data` synced as the user types
+   - `storeInput()` creates `window.data = { values, inputNames }`
+   - `values` stores `{ inputName: typedValue }`; `inputNames` stores the ordered input-name signature for stale-data checks
+   - `input` event listeners keep `window.data.values` synced as the user types
 2. **Flip** (Enter → `pycmd("ans")`): same JS context, so `window.data` persists; the back's `{{Front}}` render recreates the inputs empty
 3. **Back template** (`initializeBackTemplate`):
-   - `revealAnswer(window.data)` grades each recreated input against its `name`, colors it, and overwrites its value with the correct answer (bold)
+   - `inputSignatureMatches(window.data)` checks that the recreated input names match the front-side signature
+   - `revealAnswer(window.data.values)` grades each recreated input against its `name`, marks it with classes/text labels, preserves wrong attempts, locks it read-only, and overwrites its value with the correct answer
 
 The `<script>` block sits at the end of each template, so the `{{Front}}` inputs above it already exist when `storeInput()` runs synchronously. Only `setInputAttributes()`/`placeCursor()` are deferred via `setupDOMContentLoaded()`.
 
@@ -98,7 +99,7 @@ The `<script>` block sits at the end of each template, so the `{{Front}}` inputs
 
 - `revealAnswer()` compares the user input against the input name, with **both sides** normalized by `parseInput()`
 - Normalization: smart quotes → straight quotes, all whitespace stripped (applied to the expected answer and the typed answer alike)
-- Colors: `rgb(124,232,0)` = correct (green), `rgb(240,128,128)` = wrong (red)
+- Feedback: `answer-correct` / `answer-wrong` classes, visible `Correct` / `Incorrect` text, `aria-label`, read-only inputs, and wrong-answer attempt text
 - Untouched/missing inputs grade as empty string (wrong), never throw (`data[name] ?? ""`)
 
 ### Anki Field Syntax
@@ -111,33 +112,34 @@ Templates use Anki's mustache-style field placeholders:
 ### Anki Integration
 
 - `window.pycmd("ans")` - Calls Anki Python backend to show answer
-- Called on Enter key press (front template); guarded with `typeof pycmd !== "undefined"` so it's a no-op outside Anki (e.g. in tests)
+- Called on Enter key press (front template); guarded with `typeof pycmd !== "undefined"` so it's a no-op outside Anki (e.g. in tests). The document listener is bound once per webview and ignores IME composition Enter events.
 
 ## Key Functions
 
 ### common.ts
-- `displayTags(tagsString)` - Parses space-delimited tags, prettifies, sorts, displays in `#content_tag_left`
+- `displayTags(tagsString)` - Parses space-delimited tags, prettifies, locale-sorts case-insensitively, displays in `#content_tag_left`
 - `prettifyTag(tag)` - `"Computing::Machine_Learning"` → `"Computing - Machine Learning"`
-- `setLinkText()` - Sets first `<a>` element's text to "Link"
+- `setLinkText()` - Renders the optional `#url_container` URL as a compact `Link`; handles existing anchors and raw HTTP(S) text without touching content links
 
 ### front_template.ts
 - `placeCursor()` - Focuses first `<input>` element
 - `setInputAttributes()` - Disables autocapitalize/autocomplete/autocorrect/spellcheck
 - `setupDOMContentLoaded(callback)` - Runs callback now if DOM is ready, else on `DOMContentLoaded`
-- `storeInput()` - Creates and returns the object stored as `window.data`, tracking all named inputs
+- `storeInput()` - Creates and returns the object stored as `window.data`, tracking named input values and ordered input names
 - `setupHint()` - Touch/mouse listeners to reveal hint (sets className to "shown")
-- `setupEnterKeyEvent()` - Enter key shows answer via `pycmd("ans")`
+- `setupEnterKeyEvent()` - Enter key shows answer via `pycmd("ans")`, with a one-time listener guard and IME composition guard
 
 ### back_template.ts
 - `parseInput(str)` - Normalizes quotes (`""`→`"`, `''`→`'`) and strips whitespace
-- `revealAnswer(data)` - Colors inputs green/red, overwrites each input's value with the correct answer in bold
+- `inputSignatureMatches(data)` - Checks that stored front-side input names match the back-side inputs before grading
+- `revealAnswer(data)` - Marks inputs correct/wrong, sets read-only, overwrites each input's value with the correct answer, and adds visible/accessible feedback
 
 ## Testing
 
 Tests use Jest (`ts-jest` preset, jsdom environment, `clearMocks` — see `jest.config.js` and `tsconfig.jest.json`). Each test file:
 1. Sets `document.body.innerHTML`
 2. Loads the real `src/` files with `loadScripts()` from `tests/helpers.ts`, which transpiles them via the build script's `transpileSource()` (same code path and compiler settings as the build — `module: none`, `target: ES2022`), caches per file, and `eval()`s them to attach functions to `window` — so tests exercise the exact code that ships. Eval'ing a template file also runs its trailing `initialize*()` call as a side effect, as in Anki.
-3. Calls the functions as **bare typed globals** (e.g. `storeInput()`, `revealAnswer(data)`): the `src/` files are global scripts in the jest tsconfig's program, so their declarations are ambient and fully typed in tests — renaming or re-signaturing a `src/` function breaks test compilation, not just the runtime. `window.data` / `window.pycmd` are typed via `src/global.d.ts`.
+3. Calls the functions as **bare typed globals** (e.g. `storeInput()`, `revealAnswer(data)`): the `src/` files are global scripts in the jest tsconfig's program, so their declarations are ambient and fully typed in tests — renaming or re-signaturing a `src/` function breaks test compilation, not just the runtime. `CardInputData`, `window.data`, `window.pycmd`, and `window.enterKeyHandlerBound` are typed via `src/global.d.ts`.
 
 Test files load `common.ts` before the template-specific file, mirroring the placeholder order in the built HTML.
 
@@ -151,10 +153,10 @@ Test files load `common.ts` before the template-specific file, mirroring the pla
 2. **Named inputs only**: Inputs without `name` attribute are silently skipped
 3. **Whitespace comparison**: All whitespace is stripped during answer comparison (intentional formatting differences won't matter)
 4. **CSS not generated**: `code_cards/styling.css` is manually maintained, not regenerated by build
-5. **CSS @import**: `styling.css` starts with `@import url("_editor_button_styles.css")` — that file is **not in this repo**; it lives in the user's Anki media collection. A missing file fails silently.
-6. **Hint classes differ per side**: front hint starts as `class="hidden"` (click to reveal); back hint is hard-coded `class="shown"`
-7. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
-8. **URL field**: Must paste with `Ctrl+Shift+V` (plain text) in Anki to avoid link formatting issues
+5. **Hint classes differ per side**: front hint starts as `class="hidden"` (click to reveal); back hint is hard-coded `class="shown"`
+6. **Synchronous file I/O**: Build script uses `readFileSync`/`writeFileSync`
+7. **URL field**: raw `http://` / `https://` text and existing anchors both render as a compact `Link`; invalid text is left alone
+8. **Stale data guard**: back grading is skipped when the stored input-name signature does not match the recreated inputs
 9. **Build does not type-check**: syntax errors fail the build (transpile diagnostics are checked), but type errors sail through — run `npx tsc -p tsconfig.json --noEmit` to catch them
 10. **Coverage requires the V8 provider**: `jest.config.js` sets `coverageProvider: 'v8'` and `tests/helpers.ts` transpiles with an inline source map + `file://` `sourceURL` so eval'd code is attributed to the real `src/` files. Do not switch back to Istanbul — it instruments at the transform stage and reports 0% for everything the eval-based tests exercise. Thresholds are enforced (`coverageThreshold`), and CI runs `npm test -- --coverage`.
 
@@ -166,6 +168,9 @@ Key CSS selectors in `code_cards/styling.css`:
 - `#hint` - Hint box (`.hidden` hides `.payload`; `.shown` hides `.trigger` and shows `.payload`)
 - `.exerciseprecontainer` - Code block container (MesloLGS NF font, gray rounded box)
 - `input` - Code input fields (MesloLGS NF 16px; width is NOT set here — cards size inputs inline, e.g. `style="width: 20ch;"`)
+- `input.answer-correct` / `input.answer-wrong` - Graded answer states
+- `.answer-feedback` - Visible correct/incorrect marker and wrong-answer attempt text
+- `.card.nightMode ...` - Anki night-mode overrides for card chrome, code blocks, inputs, and feedback
 - `#content_tag_left` - Tag display area (bottom-left)
 - `#url_container` - URL area (bottom-right)
 
@@ -182,4 +187,5 @@ Key CSS selectors in `code_cards/styling.css`:
 
 Install with `pre-commit install`; run manually with `pre-commit run --all-files`.
 CI also runs `pre-commit run --all-files`, so hook failures block the `Node 24`
-GitHub Actions check.
+GitHub Actions check. `package.json` supports Node `>=24`; CI checks Node 24 as
+the minimum supported runtime and `.nvmrc` pins that local default.

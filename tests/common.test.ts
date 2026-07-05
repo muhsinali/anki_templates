@@ -16,7 +16,14 @@ describe("displayTags", () => {
     const tags = "b_a Computing::AI a_c";
     displayTags(tags);
     const elem = document.getElementById("content_tag_left");
-    expect(elem?.textContent).toBe("Computing - AI, a c, b a");
+    expect(elem?.textContent).toBe("a c, b a, Computing - AI");
+  });
+
+  test("sorts mixed-case tags alphabetically", () => {
+    const tags = "zeta Alpha beta";
+    displayTags(tags);
+    const elem = document.getElementById("content_tag_left");
+    expect(elem?.textContent).toBe("Alpha, beta, zeta");
   });
 
   // Edge case: no tags should result in an empty string
@@ -45,15 +52,65 @@ describe("prettifyTag", () => {
 });
 
 describe("setLinkText", () => {
-  // When an anchor element is present its text should change to "Link"
-  test("sets text when anchor exists", () => {
-    setupDom("<a></a>");
+  test("renames only the anchor inside the URL container", () => {
+    setupDom(
+      '<a href="https://example.com/prompt">Prompt link</a>' +
+        '<div id="url_container"><a href="https://example.com/source">Source URL</a></div>',
+    );
+
     setLinkText();
-    expect(document.querySelector("a")?.textContent).toBe("Link");
+
+    const promptLink = document.querySelector<HTMLAnchorElement>(
+      'a[href="https://example.com/prompt"]',
+    );
+    const sourceLink = document.querySelector<HTMLAnchorElement>("#url_container a");
+    expect(promptLink?.textContent).toBe("Prompt link");
+    expect(sourceLink?.textContent).toBe("Link");
+    expect(sourceLink?.getAttribute("href")).toBe("https://example.com/source");
   });
 
-  // Should not throw if the DOM has no anchor element
-  test("does nothing without anchor", () => {
+  test("does not rename content anchors when the URL container has no link", () => {
+    setupDom(
+      '<a href="https://example.com/prompt">Prompt link</a><div id="url_container"></div>',
+    );
+
+    setLinkText();
+
+    expect(document.querySelector("a")?.textContent).toBe("Prompt link");
+    expect(document.querySelector("#url_container a")).toBeNull();
+  });
+
+  test("creates a link from a raw HTTPS URL", () => {
+    setupDom('<div id="url_container"> https://example.com/source?q=1 </div>');
+
+    setLinkText();
+
+    const sourceLink = document.querySelector<HTMLAnchorElement>("#url_container a");
+    expect(sourceLink?.textContent).toBe("Link");
+    expect(sourceLink?.getAttribute("href")).toBe("https://example.com/source?q=1");
+  });
+
+  test("creates a link from a raw HTTP URL", () => {
+    setupDom('<div id="url_container">http://example.com/source</div>');
+
+    setLinkText();
+
+    const sourceLink = document.querySelector<HTMLAnchorElement>("#url_container a");
+    expect(sourceLink?.textContent).toBe("Link");
+    expect(sourceLink?.getAttribute("href")).toBe("http://example.com/source");
+  });
+
+  test("leaves empty or invalid URL text untouched", () => {
+    setupDom('<div id="url_container">not a url</div>');
+
+    setLinkText();
+
+    expect(document.querySelector("#url_container a")).toBeNull();
+    expect(document.getElementById("url_container")?.textContent).toBe("not a url");
+  });
+
+  // Should not throw if the DOM has no URL container
+  test("does nothing without a URL container", () => {
     setupDom();
     expect(() => setLinkText()).not.toThrow();
   });
