@@ -77,7 +77,8 @@ negative:
   feedback plus an `aria-label`. Wrong answers also show what the learner typed.
 - **Unnamed inputs are inert.** No `name` → skipped here and never stored on the
   Front (see [`04-runtime-data-flow`](./04-runtime-data-flow.md)).
-- **Missing keys are safe.** `data[name] ?? ""` means an input the learner never
-  touched grades as an empty string (wrong) rather than throwing.
+- **Missing entries are safe.** Each input grades against `values[index]`, and
+  anything missing or non-string grades as an empty attempt (wrong) rather than
+  throwing.
 - **Feedback is idempotent.** A repeated grading pass replaces existing feedback
   instead of duplicating it.

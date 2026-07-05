@@ -156,11 +156,11 @@ describe("Front Template Functions", () => {
       initializeFrontTemplate();
 
       // window.data created and kept in sync with typing
-      expect(window.data).toEqual({ values: { x: "" }, inputNames: ["x"] });
+      expect(window.data).toEqual({ values: [""], inputNames: ["x"] });
       const input = firstInput();
       input.value = "abc";
       input.dispatchEvent(new window.Event("input"));
-      expect(window.data).toEqual({ values: { x: "abc" }, inputNames: ["x"] });
+      expect(window.data).toEqual({ values: ["abc"], inputNames: ["x"] });
 
       // cursor placed and mobile typing attributes set (readyState is
       // "complete" in jsdom, so the deferred work runs synchronously)
@@ -190,20 +190,30 @@ describe("Front Template Functions", () => {
       inputs[0].dispatchEvent(new window.Event("input"));
       inputs[1].value = "b";
       inputs[1].dispatchEvent(new window.Event("input"));
-      expect(store).toEqual({ values: { x: "a", y: "b" }, inputNames: ["x", "y"] });
+      expect(store).toEqual({ values: ["a", "b"], inputNames: ["x", "y"] });
+    });
+
+    test("tracks duplicate input names separately by position", () => {
+      setupDom('<input name="x"><input name="x">');
+      const store = storeInput();
+      const inputs = document.querySelectorAll("input");
+      inputs[0].value = "first";
+      inputs[0].dispatchEvent(new window.Event("input"));
+      inputs[1].value = "second";
+      inputs[1].dispatchEvent(new window.Event("input"));
+      expect(store).toEqual({ values: ["first", "second"], inputNames: ["x", "x"] });
     });
 
     test("stores prototype-clashing input names as plain values", () => {
       setupDom('<input name="__proto__"><input name="constructor">');
       const store = storeInput();
       expect(store.inputNames).toEqual(["__proto__", "constructor"]);
-      expect(Object.keys(store.values)).toEqual(["__proto__", "constructor"]);
+      expect(store.values).toEqual(["", ""]);
 
       const inputs = document.querySelectorAll("input");
       inputs[0].value = "typed";
       inputs[0].dispatchEvent(new window.Event("input"));
-      expect(store.values["__proto__"]).toBe("typed");
-      expect(store.values["constructor"]).toBe("");
+      expect(store.values).toEqual(["typed", ""]);
     });
 
     test("stores initial values and skips inputs without names", () => {
@@ -213,9 +223,8 @@ describe("Front Template Functions", () => {
       expect(inputs[1].value).toBe("");
 
       const store = storeInput();
-      expect(store.values.x).toBe("initial");
+      expect(store.values).toEqual(["initial"]);
       expect(store.inputNames).toEqual(["x"]);
-      expect(Object.keys(store.values)).toEqual(["x"]);
     });
   });
 });

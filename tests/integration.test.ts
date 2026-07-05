@@ -90,10 +90,7 @@ describe("card lifecycle", () => {
     typeInto(frontInputs[0], "console.log");
     typeInto(frontInputs[1], 'print("hi")');
     expect(window.data).toEqual({
-      values: {
-        "console.log": "console.log",
-        "print(“hi”)": 'print("hi")',
-      },
+      values: ["console.log", 'print("hi")'],
       inputNames: ["console.log", "print(“hi”)"],
     });
 
@@ -167,6 +164,32 @@ describe("card lifecycle", () => {
     expect(document.getElementById("content_tag_left")?.textContent).toBe(
       "Computing - JavaScript, src - MDN",
     );
+  });
+
+  test("duplicate expected answers on one card grade each input separately", () => {
+    const fields = {
+      ...FIELDS,
+      Front:
+        '<div class="exerciseprecontainer"><pre>' +
+        '<input name="x" style="width: 6ch;"> = 1; ' +
+        '<input name="x" style="width: 6ch;"> += 1' +
+        "</pre></div>",
+    };
+
+    loadCard(renderFields(builtFront, fields));
+    const frontInputs = document.querySelectorAll("input");
+    expect(frontInputs).toHaveLength(2);
+    // Type the answer into the first blank only
+    typeInto(frontInputs[0], "x");
+
+    loadCard(renderFields(builtBack, fields));
+
+    const backInputs = document.querySelectorAll("input");
+    expect(backInputs[0].classList.contains("answer-correct")).toBe(true);
+    expect(backInputs[1].classList.contains("answer-wrong")).toBe(true);
+    expect(Array.from(document.querySelectorAll(".answer-feedback")).map(
+      (feedback) => feedback.textContent,
+    )).toEqual(["Correct", "Incorrect"]);
   });
 
   test("a prototype-clashing input name stores, survives the flip, and grades", () => {

@@ -79,7 +79,7 @@ Anki renders the front and back in the **same webview/JS context**, so globals s
 
 1. **Front template** (`initializeFrontTemplate`):
    - `storeInput()` creates `window.data = { values, inputNames }`
-   - `values` stores `{ inputName: typedValue }`; `inputNames` stores the ordered input-name signature for stale-data checks
+   - `values[i]` stores what was typed into the i-th named input (positional, so duplicate expected answers each keep their own value); `inputNames` stores the ordered input-name signature for stale-data checks
    - `input` event listeners keep `window.data.values` synced as the user types
 2. **Flip** (Enter → `pycmd("ans")`): same JS context, so `window.data` persists; the back's `{{Front}}` render recreates the inputs empty
 3. **Back template** (`initializeBackTemplate`):
@@ -100,7 +100,7 @@ The `<script>` block sits at the end of each template, so the `{{Front}}` inputs
 - `revealAnswer()` compares the user input against the input name, with **both sides** normalized by `parseInput()`
 - Normalization: smart quotes → straight quotes, all whitespace stripped (applied to the expected answer and the typed answer alike)
 - Feedback: `answer-correct` / `answer-wrong` classes, visible `Correct` / `Incorrect` text, `aria-label`, read-only inputs, and wrong-answer attempt text
-- Untouched/missing inputs grade as empty string (wrong), never throw (`data[name] ?? ""`)
+- Untouched/missing inputs grade as empty string (wrong), never throw (each input grades against `values[index]`, non-strings coerce to `""`)
 
 ### Anki Field Syntax
 

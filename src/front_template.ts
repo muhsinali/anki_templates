@@ -57,10 +57,7 @@ function setupHint(): void {
 }
 
 function storeInput(): CardInputData {
-  // Null prototype so prototype-clashing input names ("__proto__",
-  // "constructor") store and read back as plain own properties.
-  const values: Record<string, string> = Object.create(null);
-  const data: CardInputData = { values, inputNames: [] };
+  const data: CardInputData = { values: [], inputNames: [] };
   getInputs().forEach((input) => rememberInput(data, input));
   return data;
 }
@@ -69,10 +66,13 @@ function rememberInput(data: CardInputData, input: HTMLInputElement): void {
   const inputName = input.name;
   if (!inputName) return;
 
+  // Positional storage: duplicate expected answers on one card each keep
+  // their own typed value, and names like "__proto__" need no special case
+  const index = data.inputNames.length;
   data.inputNames.push(inputName);
-  data.values[inputName] = input.value;
+  data.values.push(input.value);
   input.addEventListener("input", () => {
-    data.values[inputName] = input.value;
+    data.values[index] = input.value;
   });
 }
 
