@@ -106,7 +106,7 @@ If the field is empty or does not look like an HTTP(S) URL, no link is shown and
 
 ## ⚙️ Development
 
-Requires Node.js 24 or newer (`engines`); CI and `.nvmrc` track the Node 26 line.
+Requires Node.js 26 or newer (`engines`); CI and `.nvmrc` track the Node 26 line.
 
 ```bash
 npm install     # Install dependencies

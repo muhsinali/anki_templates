@@ -77,7 +77,7 @@ Two non-obvious mechanics, documented so nobody "fixes" them:
 ## 7b · The CI gate
 
 Runs on every push and pull request on the Node 26 major line, the tested
-baseline (`engines: ">=24"`, `.nvmrc` tracks 26 locally). The CI job is named
+baseline (`engines: ">=26"`, `.nvmrc` tracks 26 locally). The CI job is named
 `checks` — deliberately version-agnostic — and is designed to be the required
 PR status check, so any failed step keeps the PR red.
 
