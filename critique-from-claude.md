@@ -15,6 +15,8 @@ The most important problems found:
 
 Six regression tests were added (suite: 60 → 66, all green); five were demonstrated to fail against the pre-fix code before being trusted, matching the repo's own red-before-green discipline.
 
+*(The maintainer subsequently approved acting on every open item — Node policy, positional grading for duplicate names, coverage ratchet, npm audit, action SHA-pinning, and an mmdr-based diagram render gate. The suite now stands at 70 tests. See "Post-review follow-ups" below.)*
+
 ## Repository and change context
 
 - **Current branch:** `claude/codex-code-review-682224` (identical to `origin/claude/codex-code-review-682224`; working tree was clean at review start)
@@ -66,7 +68,7 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 - **Evidence:** Codex changed the `window.data` contract from `Record<string, string>` to `{ values, inputNames }` and made the back call `inputSignatureMatches(window.data)`, which dereferences `data.inputNames.length`. The only guard was truthiness (`window.data && …`). But `window.data` is a global in Anki's **long-lived reviewer webview**: the immediately previous template version stored the *old* shape (no `inputNames`), and any other script sharing the webview can write the conveniently-named `data` global. With such a value, `inputSignatureMatches` throws `TypeError`, and because grading runs *before* `displayTags()`/`setLinkText()` in `initializeBackTemplate()`, the entire back-side chrome dies with it. Notably, the exact upgrade path this change ships through (review with old front → template update → new back in the same webview) is the realistic trigger.
 - **Impact:** One-time hard failure of the back side (no grading, no tags, no link) during template migration; permanent fragility against any non-conforming `window.data` writer. The repo's own stated goal for this code ("skips grading instead of throwing", gotcha 8) is violated for shape mismatches.
 - **Recommendation:** Validate the runtime shape before trusting the compile-time contract.
-- **Resolution:** Added an `isCardInputData(value: unknown): value is CardInputData` type guard (object check, `values` is a non-null object, `inputNames` is an array) and made `initializeBackTemplate()` use it. No type casts needed (uses `in`-operator narrowing). Two new unit tests assign stale/partial shapes via `window.eval` (so the tests themselves need no casts, preserving the repo's zero-cast test suite) and were seen red before the fix. `CLAUDE.md` (data flow, key functions, gotcha 8) and `BUILD.md` updated to match.
+- **Resolution:** Added an `isCardInputData(value: unknown): value is CardInputData` type guard and made `initializeBackTemplate()` use it. No type casts needed (uses `in`-operator narrowing). Unit tests assign stale/partial shapes via `window.eval` (so the tests themselves need no casts, preserving the repo's zero-cast test suite) and were seen red before the fix. After the positional follow-up (`2383ae9`) the guard requires `values` and `inputNames` to both be arrays, which also safely rejects the record-shaped contract that briefly existed on `main` (`48ffbe7`). `CLAUDE.md` (data flow, key functions, gotcha 8) and `BUILD.md` updated to match.
 
 ### [Severity: Medium] Prototype-clashing input names (`__proto__`) crash the back side
 
@@ -76,7 +78,7 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 - **Evidence:** `values` was a plain object literal. For `<input name="__proto__">`: the front's `values["__proto__"] = input.value` is a **silent no-op** (the inherited `__proto__` setter ignores non-object assignments, even under the templates' `"use strict"`), and the back's `data["__proto__"] ?? ""` returns `Object.prototype` — an object — so `parseInput()` calls `.replace` on a non-string and throws, killing the whole back-side script. The input-name *signature* matches (names are stored in an array), so the new guard does not help. For a **JavaScript practice deck**, `__proto__`/`constructor` are plausible expected answers, which is what elevates this above a curiosity.
 - **Impact:** Authoring one such card makes its back side completely non-functional (no grading, no tags, no link), with no error surfaced to the user.
 - **Recommendation:** Store attempts in a null-prototype object so every name is a plain own property.
-- **Resolution:** `storeInput()` now creates `values` with `Object.create(null)` (one line + one comment; Jest `toEqual` in existing tests is prototype-insensitive, so nothing else changed). Added: a front unit test (storage and live sync for `__proto__`/`constructor` names), a back unit test (grading from a null-prototype store), and an end-to-end integration test (type `__proto__` on the front, flip, grade green). The storage and integration tests were red before the fix.
+- **Resolution:** `storeInput()` initially created `values` with `Object.create(null)` (verified red-before-green). The follow-up positional refactor (`2383ae9`) supersedes that workaround — values are stored in an array by input position, so prototype-clashing names need no special case at all. The regression tests (front storage, back grading, end-to-end `__proto__` card) were kept and updated to the positional contract.
 
 ### [Severity: Medium] CI runs the type-checks and the test suite twice
 
@@ -110,7 +112,7 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 
 - **Location:** `package.json` (`engines: ">=26.4.0"`), `.nvmrc`, `.github/workflows/ci.yml` (`node-version: "26.4.0"`, job name `Node 26.4.0`) — commit `0903eb9`
 - **Category:** maintainability / developer experience
-- **Status:** needs human decision (deliberate policy set in a dedicated commit; not overridden)
+- **Status:** ~~needs human decision~~ → **resolved in follow-up** (maintainer chose option (a): CI on the `26` major, job renamed `checks`, engines `>=24` — commit `fa81948`)
 - **Evidence:** The previous (Claude) policy targeted maintained LTS lines with a reasoned matrix. Codex moved everything to exactly 26.4.0. As of 2026-07, Node 26 is a *Current* line (LTS promotion due October 2026). This entire review ran on Node v22.22.2 — every check passes — so the `>=26.4.0` floor excludes runtimes that demonstrably work. The exact CI pin means the runner never picks up 26.x security/bug patches, and the job name `Node 26.4.0` is baked into docs and the branch-protection instructions (`improvement-plan.md` item 20), so every future version bump silently invalidates the required-status-check name.
 - **Impact:** Contributor friction (engines warnings on LTS setups), stale CI runtime, and a branch-protection check name that churns with every patch bump.
 - **Recommendation:** Pick one: (a) CI on `node-version: 26` (or `lts/*` after October) with a version-agnostic job name like `checks`, and a floor of `>=24` unless a ≥26 feature is actually used; or (b) keep the exact pin but rename the job to something stable and document why 26.4.0 specifically. Update `improvement-plan.md` item 20's required-check name to match whatever is chosen.
@@ -119,7 +121,7 @@ Six regression tests were added (suite: 60 → 66, all green); five were demonst
 
 - **Location:** `src/front_template.ts` — `rememberInput()`; `src/back_template.ts` — `revealInputAnswer()`
 - **Category:** correctness (pre-existing design limitation, unchanged by Codex)
-- **Status:** not fixed — needs human decision
+- **Status:** ~~needs human decision~~ → **fixed in follow-up** (maintainer chose the positional-contract redesign — commit `2383ae9`, see "Post-review follow-ups")
 - **Evidence:** `values` is keyed by input name. Two inputs with the same `name` (the same expected answer appearing twice in a snippet) share one entry; typing into either updates the same key, and both grade from it. An untouched duplicate can grade green because its twin was filled. The new `inputNames` array handles duplicates correctly for the signature check — only the value store collapses.
 - **Impact:** Incorrect per-field grading on cards that repeat an expected answer. Plausible for real code snippets (`x` twice on one line).
 - **Recommendation:** If worth supporting, key the store by input *index* (the signature already gives a stable ordering) and grade positionally. This is a contract change to `CardInputData` and deliberately out of scope for a review pass; alternatively document it as a card-authoring rule in the README.
@@ -164,7 +166,7 @@ Minor observations not worth changes: the tag sort is intentionally host-locale-
 
 Verified at the maintainer's request: what happens to existing decks and mid-update webview states when users move from the currently-installed templates (`main`, `239eefb`) to these.
 
-**Method:** a temporary Jest suite built the *actual old templates* out of git history (through the current `transpileSource`/`injectJavaScript`, same compiler settings), rendered a README-style card (two inputs including a smart-quoted name, Hint, Tags, URL field carrying an anchor — the old authoring convention), and exercised the mixed states in one jsdom window, exactly as Anki's long-lived webview would. The suite (4/4 passing) was deleted after running because it reads git history, which would break on shallow clones in CI.
+**Method:** a temporary Jest suite built the *actual old templates* out of git history (through the current `transpileSource`/`injectJavaScript`, same compiler settings), rendered a README-style card (two inputs including a smart-quoted name, Hint, Tags, URL field carrying an anchor — the old authoring convention), and exercised the mixed states in one jsdom window, exactly as Anki's long-lived webview would. The suite (4/4 passing) was deleted after running because it reads git history, which would break on shallow clones in CI. *(Re-run after the positional-grading follow-up against **both** historical contracts — `239eefb` flat and `48ffbe7` record-shaped — 5/5 scenarios pass; see "Post-review follow-ups".)*
 
 | Scenario | Result |
 |---|---|
@@ -218,19 +220,52 @@ Verified at the maintainer's request: what happens to existing decks and mid-upd
 - **Checks failing:** none locally.
 - **Not verifiable here:** an actual GitHub Actions run on Node 26.4.0 (container has Node 22.22.2; engines is warn-only). Everything CI runs was executed locally and passes on 22, which itself informs the Node-floor finding.
 
+## Post-review follow-ups (2026-07-05, maintainer-approved)
+
+The maintainer approved acting on every actionable item. One commit each:
+
+| Item | Outcome | Commit |
+|---|---|---|
+| Node policy (option a) | CI tracks the Node `26` major line under a version-agnostic `checks` job name; `engines.node: ">=24"`; `.nvmrc` 26; all docs (incl. improvement-plan item 20's required-check name) aligned | `fa81948` |
+| Duplicate input names | **Fixed properly**: `CardInputData.values` is now `string[]` parallel to `inputNames` — each input grades against what was typed into *it*. This also supersedes the null-prototype workaround (numeric indices have no prototype clash), and `isCardInputData` now rejects both older contracts in the wild (flat record *and* record-shaped values), so mid-upgrade webview states skip grading safely. Suite 66 → 70 (duplicate-name unit + e2e tests, record-shape stale test); cross-version compatibility re-verified against both `239eefb` and `48ffbe7` templates built from git history (5/5 scenarios) | `2383ae9` |
+| Coverage ratchet | global (guards `scripts/`) 60/60/55/60 → 90/90/80/90; `src/` branches 90 → 95 — just below current actuals (~94/93/83 and ~99.6/97.8) | `7b1d8a3` |
+| npm audit | All 6 advisories (3 high) fixed within existing semver ranges; `npm audit` now reports 0; suite green on the patched tree | `b8720dc` |
+| SHA-pin actions | checkout v4.3.1, setup-node v4.4.0, setup-python v5.6.0, cache v4.3.0 pinned to the commits their major tags resolve to (via `git ls-remote`) | `6a0096a` |
+| Mermaid render gate | `scripts/check-diagrams.ts` renders all 12 diagram blocks with [mmdr](https://github.com/1jehuang/mermaid-rs-renderer) 0.3.0 (maintainer's pick; ~4s total, binary cached in CI); wired as a CI step and `make diagrams` | `9290ede` |
+| Branch protection | **External step for the maintainer** — see instructions in "Suggested next steps"; the `checks` job name is now stable so the rule won't churn | — |
+
+**Finding discovered while landing the diagram gate:** mmdr 0.3.0's parser is
+more lenient than GitHub's mermaid.js. Probed empirically: it rejects garbage
+blocks, unknown diagram types, and dangling flowchart edges, but **accepts**
+the `;`-in-note bug that actually shipped (plus `->>>' arrows and unclosed
+brackets). So the gate catches structural breakage and render regressions but
+is not an exact GitHub preview — documented in the script header, BUILD.md,
+and diagram 07. If exactness is wanted, the option is a small Jest-side check
+that runs the real `mermaid` npm parser under the existing jsdom environment
+(no browser needed, fast) — left as a maintainer decision because it adds a
+sizeable devDependency.
+
 ## Remaining risks
 
-- **Node policy** (finding above): exact 26.4.0 pin, pre-LTS line, engines floor above demonstrated compatibility, and a version-bearing required-check name. Deliberate user choice; needs a human call, not a reviewer override.
-- **Duplicate input names** still collapse to one stored value; fixing means changing the `CardInputData` contract to positional keying — product/architecture decision.
+(Updated after the follow-ups — the Node policy, duplicate-name, audit, and
+diagram-gate risks listed in the original review are now resolved; see
+"Post-review follow-ups".)
+
 - **`{{Tags}}` inside the script string** remains a latent self-breakage vector for tags containing quotes; the fix touches the base-template contract.
 - **Foreign `window.data` writers** are now shape-checked, but a writer that fabricates a fully valid `CardInputData` matching the card's input names can still influence grading — inherent to a shared-webview global and not realistically defensible beyond what's done.
-- **Diagram syntax has no gate:** the broken Mermaid block shipped because nothing renders the diagrams in CI; my check was ad-hoc scratchpad tooling.
+- **The diagram gate is a smoke check, not a GitHub preview:** mmdr's parser is more lenient than mermaid.js in places (it accepts the `;`-in-note bug that shipped). An exact-parser layer via the `mermaid` npm package under jsdom is possible if wanted — new devDependency, maintainer's call.
 - **Upgrade coupling** is documented (README callout) but not enforceable — users who update templates without the new CSS get functional-but-unstyled grading; only the small text labels ("Correct"/"Incorrect") survive.
+- **CI runs tsc/Jest twice** (pre-commit hooks + dedicated steps) — an acknowledged maintainer preference, kept deliberately.
 
 ## Suggested next steps
 
-1. **Decide the Node policy** (the one Medium-adjacent open question): recommend CI on major `26` (or `lts/*` from October), a stable job name (update `improvement-plan.md` item 20's required-check name to match), and `engines` at the lowest line that actually works (`>=24`, or `>=22` per this review's evidence).
-2. **Review and commit this branch's uncommitted changes** (left uncommitted per instructions), then let CI confirm on the real runner.
-3. **Add a Mermaid render check** to CI or pre-commit (mermaid-cli against `documentation/architecture-diagrams/*.md`) so rewritten diagrams can't silently stop rendering again.
-4. **Decide on duplicate-input-name support** — either positional grading or a documented authoring rule.
-5. Opportunistic: raise the `scripts/` coverage ratchet toward current actuals; consider SHA-pinning the GitHub Actions; run `npm audit` for the 6 findings the improvement plan noted as out of scope.
+(Rewritten after the follow-ups — items 1 and 3–5 of the original list, plus
+the duplicate-name fix, have been executed; see "Post-review follow-ups".)
+
+1. **Merge PR #8**, which now carries the review fixes plus all approved follow-ups.
+2. **Protect `main`** (the one remaining external step — repository settings, not code):
+   - GitHub → Settings → Branches → Add branch ruleset/protection rule for `main`
+   - Enable "Require status checks to pass before merging" and select **`checks`** (it appears in the picker after the renamed job's first run on this PR; it can also be typed manually)
+   - Enable "Require branches to be up to date before merging"
+3. **Decide whether the diagram gate should be GitHub-exact**: keep mmdr-only (fast smoke check, current state), or add a small Jest-side `mermaid.parse()` check under the existing jsdom environment (exact parser GitHub uses, no browser — at the cost of a sizeable `mermaid` devDependency). Reporting the mmdr leniency upstream to `1jehuang/mermaid-rs-renderer` would help too.
+4. **If it ever bites**: harden the `{{Tags}}`-in-script pattern by moving the tag string into a `data-` attribute read from the DOM.
