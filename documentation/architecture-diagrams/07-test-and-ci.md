@@ -91,6 +91,7 @@ flowchart TB
     tests["npm test -- --coverage"]
     build["npm run build"]
     drift["git diff --exit-code code_cards/"]
+    diagrams["check-diagrams.ts<br/>mmdr render check"]
     required_check["Required status check<br/>checks"]
     merge_allowed(["PR merge allowed"])
     red_status(["PR stays red"])
@@ -103,7 +104,8 @@ flowchart TB
     typecheck_tests --> tests
     tests --> build
     build --> drift
-    drift --> required_check
+    drift --> diagrams
+    diagrams --> required_check
     required_check --> merge_allowed
 
     %% Any gate failure blocks the required check.
@@ -113,6 +115,7 @@ flowchart TB
     tests -->|failure or coverage drop| red_status
     build -->|syntax or build error| red_status
     drift -->|generated output drift| red_status
+    diagrams -->|diagram stops rendering| red_status
 
     classDef entry fill:#fff3cd,stroke:#f9a825,color:#000;
     classDef process fill:#e1f5ff,stroke:#0288d1,color:#000;
@@ -121,7 +124,7 @@ flowchart TB
 
     class trigger entry;
     class install,precommit,typecheck_src,typecheck_tests process;
-    class tests,build,drift,required_check process;
+    class tests,build,drift,diagrams,required_check process;
     class merge_allowed ok;
     class red_status bad;
 ```
@@ -135,6 +138,12 @@ The pre-commit gate runs the same hooks as a local commit:
 
 The drift gate converts "remember to regenerate `code_cards/` after editing
 `src/`" into a hard failure and implicitly asserts the build is deterministic.
+
+The diagram gate renders every Mermaid block in this directory with
+[mmdr](https://github.com/1jehuang/mermaid-rs-renderer) (pinned, binary
+cached), so a diagram that stops rendering fails CI instead of shipping as a
+GitHub error box. mmdr's parser is more lenient than GitHub's mermaid.js in
+places, so treat it as a smoke check, not an exact preview.
 
 To block PR merges, protect `main` in GitHub and require the CI job's status
 check, `checks` from the `CI` workflow. Enable "Require status checks to pass
