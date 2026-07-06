@@ -11,7 +11,7 @@
 > shows the architecture it produced.
 >
 > Follow-up on 2026-07-05: the repo briefly pinned Node 26.4.0, then settled
-> on `engines.node: ">=24"` with CI and `.nvmrc` tracking the Node 26 major
+> on `engines.node: ">=26"` with CI and `.nvmrc` tracking the Node 26 major
 > line under a version-agnostic `checks` job name.
 
 This was a step-by-step plan for upgrading the testing infrastructure of the Anki code
@@ -199,7 +199,7 @@ the fundamentals hold.
 > BUILD.md's aspirational CI section replaced with the real thing. Later
 > hardened in `f1d3e8d` (read-only token, concurrency cancellation) and
 > consolidated to a single Node 24 job in `08eb1f0`; the active baseline was
-> later moved to the Node 26 line (job name `checks`, engines `>=24`).
+> later moved to the Node 26 line (job name `checks`, engines `>=26`).
 
 **Why first.** Every other improvement only pays off if it runs on every change. Right
 now, tests run solely via an *optionally installed* pre-commit hook — a fresh clone, a

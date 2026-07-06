@@ -189,5 +189,5 @@ Key CSS selectors in `code_cards/styling.css`:
 
 Install with `pre-commit install`; run manually with `pre-commit run --all-files`.
 CI also runs `pre-commit run --all-files`, so hook failures block the
-`checks` GitHub Actions job. `package.json` allows Node `>=24`;
+`checks` GitHub Actions job. `package.json` allows Node `>=26`;
 CI and `.nvmrc` track the Node 26 major line.

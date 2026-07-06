@@ -9,7 +9,7 @@ Item 20 is the only remaining external operation because GitHub branch
 protection is repository settings state, not a local code change.
 
 Follow-up on 2026-07-05: the Node policy briefly pinned 26.4.0 exactly, then
-settled (review feedback) on `engines.node: ">=24"` with CI and `.nvmrc`
+settled (review feedback) on `engines.node: ">=26"` with CI and `.nvmrc`
 tracking the Node 26 major line under a version-agnostic `checks` job name.
 
 Status key:
@@ -75,9 +75,9 @@ Status key:
 
 ### Follow-up updates
 
-- **2026-07-05 Node baseline:** first pinned `26.4.0` exactly, then relaxed
-  after review: `engines.node: ">=24"` (the toolchain demonstrably runs on
-  older LTS lines), CI and `.nvmrc` track the Node `26` major so security
+- **2026-07-05 Node baseline:** first pinned `26.4.0` exactly, then settled
+  after review on `engines.node: ">=26"` — the whole codebase targets the
+  Node 26 line or newer. CI and `.nvmrc` track the `26` major so security
   patches arrive automatically, the CI job is named `checks` so the required
   status check never churns with version bumps, and `@types/node` stays on
   the 26 line.
