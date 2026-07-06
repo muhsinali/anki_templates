@@ -11,8 +11,16 @@ module.exports = {
   // List files explicitly so never-loaded files show up as 0% instead of
   // being invisible. Declaration files are excluded: they contain no
   // executable code, but Node 24's V8 coverage counts them as 0% rows,
-  // which would sink the src/ threshold.
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', 'scripts/**/*.ts'],
+  // which would sink the src/ threshold. check-diagrams.ts is excluded
+  // because it is a CI gate script that shells out to the external mmdr
+  // binary — exercising it under Jest would make the suite depend on a
+  // Rust toolchain every contributor would need.
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    'scripts/**/*.ts',
+    '!scripts/check-diagrams.ts',
+  ],
   // Ratchet: slightly below observed values (src ~99.6/97.8, scripts
   // ~94/93/83 at the time of writing) so coverage can only stay level or
   // rise. Files matching the src path are excluded from the global check,
