@@ -32,6 +32,7 @@ A `Makefile` wraps these for convenience — run `make` alone to list targets:
 make build      # = npm run build
 make test       # = npm test
 make typecheck  # tsc --noEmit for both tsconfigs
+make diagrams   # render-check Mermaid diagrams (needs mmdr via cargo)
 make check      # typecheck + test + build (run before committing)
 ```
 

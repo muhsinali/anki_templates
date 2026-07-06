@@ -4,7 +4,7 @@
 # exact incantations. Run `make` on its own to see what's available.
 
 .DEFAULT_GOAL := help
-.PHONY: help install build test coverage typecheck check hooks clean
+.PHONY: help install build test coverage typecheck diagrams check hooks clean
 
 help: ## Show this help
 	@echo "Code Cards for Anki — make targets:"
@@ -26,6 +26,9 @@ coverage: ## Run tests with a coverage report
 typecheck: ## Type-check src/, tests/, and scripts/ (the build never type-checks)
 	npx tsc -p tsconfig.json --noEmit
 	npx tsc -p tsconfig.jest.json --noEmit
+
+diagrams: ## Render-check the Mermaid architecture diagrams (needs mmdr: cargo install mermaid-rs-renderer --locked)
+	npx ts-node scripts/check-diagrams.ts
 
 check: typecheck test build ## Everything a commit should pass: types, tests, build
 	@echo "All checks passed."

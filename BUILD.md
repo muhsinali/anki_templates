@@ -38,6 +38,7 @@ A `Makefile` wraps the common commands. Run `make` on its own to see this list:
 | `make test` | Run the Jest test suite |
 | `make coverage` | Tests with a coverage report |
 | `make typecheck` | `tsc --noEmit` for both tsconfigs |
+| `make diagrams` | Render-check the Mermaid architecture diagrams (needs [mmdr](https://github.com/1jehuang/mermaid-rs-renderer): `cargo install mermaid-rs-renderer --locked`) |
 | `make check` | typecheck + test + build — run this before committing |
 | `make hooks` | Install the pre-commit git hooks |
 | `make clean` | Remove `coverage/` |
@@ -398,13 +399,24 @@ npx tsc -p tsconfig.jest.json --noEmit  # Type-check tests/ and scripts/
 npm test -- --coverage             # Run the Jest suite + coverage thresholds
 npm run build                      # Regenerate the templates
 git diff --exit-code code_cards/   # Fail if committed output drifted from src/
+npx ts-node scripts/check-diagrams.ts  # Render-check the Mermaid diagrams (mmdr)
 ```
 
-The last step is the drift gate: generated files in `code_cards/` are
+The drift gate: generated files in `code_cards/` are
 committed to the repo so users can copy them into Anki without building, and
 CI fails any change that edits `src/` or `templates/` without committing the
 regenerated output. It also implicitly asserts the build is deterministic.
 
+The diagram gate renders every ```` ```mermaid ```` block in
+`documentation/architecture-diagrams/` with
+[mmdr](https://github.com/1jehuang/mermaid-rs-renderer) (a fast Rust
+renderer; the binary is cached in CI and pinned to 0.3.0). It catches
+structural breakage — garbage blocks, unknown diagram types, dangling edges —
+and render regressions. Caveat: mmdr's parser is more lenient than
+mermaid.js (what GitHub runs) in places, so it is a strong smoke check, not
+a byte-exact GitHub preview.
+
 A PR cannot merge green if it breaks pre-commit, the types, the tests, the
-build, or forgets to regenerate `code_cards/`. To make GitHub block the merge,
-protect `main` and require the `checks` status check from the `CI` workflow.
+build, the diagrams, or forgets to regenerate `code_cards/`. To make GitHub
+block the merge, protect `main` and require the `checks` status check from
+the `CI` workflow.

@@ -63,3 +63,19 @@ jobs:
 
       - name: Verify committed code_cards/ matches src/ (no drift)
         run: git diff --exit-code code_cards/
+
+      # A Mermaid syntax error doesn't fail anything on its own — GitHub just
+      # renders an error box. Render every diagram block so that can't ship.
+      - name: Cache mmdr binary
+        id: cache-mmdr
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cargo/bin/mmdr
+          key: mmdr-0.3.0-${{ runner.os }}
+
+      - name: Install mmdr (Rust Mermaid renderer)
+        if: steps.cache-mmdr.outputs.cache-hit != 'true'
+        run: cargo install mermaid-rs-renderer --version 0.3.0 --locked
+
+      - name: Check architecture diagrams render
+        run: npx ts-node scripts/check-diagrams.ts
